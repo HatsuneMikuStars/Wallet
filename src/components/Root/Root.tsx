@@ -8,6 +8,7 @@ import {
   useSignal,
 } from '@telegram-apps/sdk-react';
 import { TonConnectUIProvider } from '@tonconnect/ui-react';
+import { THEME } from '@tonconnect/ui';
 import { AppRoot } from '@telegram-apps/telegram-ui';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
@@ -49,17 +50,7 @@ function RootInner({ children }: PropsWithChildren) {
     <TonConnectUIProvider 
       manifestUrl="https://raw.githubusercontent.com/GovnoStars/Wallet/refs/heads/main/public/tonconnect-manifest.json"
       uiPreferences={{
-        theme: isDark ? 'DARK' : 'LIGHT',
-        customStyles: {
-          common: {
-            modalBackground: isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.8)',
-          },
-          card: {
-            background: isDark ? '#1D2333' : '#FFFFFF',
-            borderRadius: '16px',
-            boxShadow: isDark ? '0px 4px 24px rgba(0, 0, 0, 0.4)' : '0px 4px 24px rgba(0, 0, 0, 0.1)',
-          }
-        }
+        theme: isDark ? THEME.DARK : THEME.LIGHT
       }}
     >
       <AppRoot
