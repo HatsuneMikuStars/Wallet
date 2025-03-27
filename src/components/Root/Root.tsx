@@ -47,7 +47,7 @@ function RootInner({ children }: PropsWithChildren) {
 
   return (
     <TonConnectUIProvider 
-      manifestUrl="https://raw.githubusercontent.com/Telegram-Mini-Apps/nextjs-template/refs/heads/master/public/tonconnect-manifest.json"
+      manifestUrl="https://raw.githubusercontent.com/GovnoStars/Wallet/refs/heads/main/public/tonconnect-manifest.json"
       uiPreferences={{
         theme: isDark ? 'DARK' : 'LIGHT',
         customStyles: {
