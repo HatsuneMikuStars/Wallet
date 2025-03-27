@@ -185,6 +185,23 @@ export default function TransferPage() {
           >
             {isTransferring ? "Ожидание..." : "Попробовать снова"}
           </Button>
+          
+          {/* Добавляем кнопку для отвязки кошелька */}
+          <Button 
+            className="ml-2"
+            style={{ backgroundColor: '#f44336' }}
+            onClick={async () => {
+              try {
+                await tonConnectUI.disconnect();
+                console.log('Кошелек успешно отвязан');
+                window.location.reload();
+              } catch (error) {
+                console.error('Ошибка при отвязке кошелька:', error);
+              }
+            }}
+          >
+            Отвязать кошелёк
+          </Button>
         </div>
       </Card>
     </Page>
