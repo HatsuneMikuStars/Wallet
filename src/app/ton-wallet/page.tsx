@@ -19,6 +19,7 @@ const TonWalletPage = () => {
   const [loading, setLoading] = useState(false);
   const [txResult, setTxResult] = useState('');
   const [addressError, setAddressError] = useState('');
+  const [txDetails, setTxDetails] = useState<any>(null);
 
   // Валидация адреса при вводе
   useEffect(() => {
@@ -33,8 +34,16 @@ const TonWalletPage = () => {
   useEffect(() => {
     return () => {
       setTxResult('');
+      setTxDetails(null);
     };
   }, []);
+
+  // Функция для форматирования BOC для отображения
+  const formatBoc = (boc: string | undefined): string => {
+    if (!boc) return 'Нет данных';
+    if (boc.length <= 30) return boc;
+    return `${boc.slice(0, 15)}...${boc.slice(-15)}`;
+  };
 
   // Функция для отправки TON
   const handleSend = async () => {
@@ -49,29 +58,53 @@ const TonWalletPage = () => {
     
     setLoading(true);
     setTxResult('');
+    setTxDetails(null);
     
     try {
-      // Полный набор параметров для транзакции
+      // Полный набор параметров для транзакции с пояснениями
       const result = await sendTransaction({
-        // Обязательные параметры
+        // Обязательные параметры для любой транзакции
         recipient: recipient, 
         amount: parsedAmount,
         
-        // Специальные параметры безопасности
-        network: CHAIN.MAINNET, // Явно указываем сеть для предотвращения ошибок
+        // Явно указываем сеть для предотвращения ошибок
+        // Используем сеть из подключенного кошелька или принудительно указываем MAINNET
+        network: wallet?.account.chain || CHAIN.MAINNET,
         
-        // Опциональные параметры
+        // Текстовый комментарий (SDK автоматически выполнит правильное кодирование)
         comment: comment || undefined,
         
-        // Параметры для более сложных сценариев (отключены в этом примере)
+        // Параметры для продвинутых сценариев (отключены в этом примере)
         // stateInit: undefined, // Base64-encoded stateInit для деплоя контрактов
         // extraCurrency: undefined // Для отправки Jetton'ов (токенов TON)
       });
       
-      setTxResult(`Транзакция успешно отправлена!\nBoc: ${result?.boc.slice(0, 30)}...`);
+      // Сохраняем результат для отображения
+      setTxDetails(result);
+      setTxResult(`Транзакция успешно отправлена!`);
     } catch (e) {
-      console.error(e);
-      setTxResult(`Ошибка: ${e instanceof Error ? e.message : String(e)}`);
+      console.error('Ошибка транзакции:', e);
+      
+      // Обрабатываем разные типы ошибок
+      let errorMessage = '';
+      
+      if (e instanceof Error) {
+        if (e.message.includes('User rejected the transaction')) {
+          errorMessage = 'Вы отклонили транзакцию';
+        } else if (e.message.includes('Invalid magic')) {
+          errorMessage = 'Ошибка кодирования данных. Проверьте, что комментарий содержит только допустимые символы.';
+        } else if (e.message.includes('not enough balance')) {
+          errorMessage = 'Недостаточно средств на балансе для выполнения транзакции';
+        } else if (e.message.includes('Cell overflow')) {
+          errorMessage = 'Комментарий слишком длинный. Сократите его размер.';
+        } else {
+          errorMessage = e.message;
+        }
+      } else {
+        errorMessage = String(e);
+      }
+      
+      setTxResult(`Ошибка: ${errorMessage}`);
     } finally {
       setLoading(false);
     }
@@ -177,18 +210,33 @@ const TonWalletPage = () => {
                 </Button>
                 
                 {txResult && (
-                  <Text 
+                  <div
                     style={{ 
                       marginTop: 15, 
-                      padding: 10,
+                      padding: 12,
                       borderRadius: 8,
                       background: txResult.includes('Ошибка') 
                         ? 'rgba(255, 0, 0, 0.1)' 
                         : 'rgba(0, 255, 0, 0.1)'
                     }}
                   >
-                    {txResult}
-                  </Text>
+                    <Text weight="2">
+                      {txResult}
+                    </Text>
+                    
+                    {txDetails && (
+                      <div style={{ marginTop: 8 }}>
+                        <Text size={13} style={{ marginBottom: 4 }}>
+                          BOC: {formatBoc(txDetails.boc)}
+                        </Text>
+                        {txDetails.externalId && (
+                          <Text size={13}>
+                            ID: {txDetails.externalId}
+                          </Text>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 )}
               </Card>
             </Section>

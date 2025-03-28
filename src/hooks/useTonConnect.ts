@@ -57,6 +57,21 @@ export function useTonConnect() {
     return wallet.account.chain === CHAIN.MAINNET ? 'mainnet' : 'testnet';
   }, [wallet]);
 
+  // Преобразование текстового комментария в формат BOC для корректной обработки
+  const commentToBoc = (text?: string): string | undefined => {
+    if (!text) return undefined;
+    try {
+      // Создаем ячейку с текстовым комментарием
+      // 0 в первых 32 битах означает, что это текстовое сообщение
+      const cell = beginCell().storeUint(0, 32).storeStringTail(text).endCell();
+      // Возвращаем BOC в формате base64
+      return cell.toBoc().toString('base64');
+    } catch (e) {
+      console.error('Ошибка при преобразовании комментария в BOC:', e);
+      return undefined;
+    }
+  };
+
   /**
    * Отправка TON-транзакции с опциями
    * @param options Параметры транзакции
@@ -69,6 +84,9 @@ export function useTonConnect() {
       try {
         console.log('Подготовка транзакции:', options);
 
+        // Преобразуем комментарий в BOC формат если он есть
+        const commentBoc = options.comment ? commentToBoc(options.comment) : undefined;
+
         // Создаем транзакцию с полным набором параметров
         const transactionRequest: SendTransactionRequest = {
           validUntil: Math.floor(Date.now() / 1000) + 360, // 5 минут на подтверждение
@@ -77,7 +95,8 @@ export function useTonConnect() {
             {
               address: options.recipient,
               amount: toNano(options.amount.toString()).toString(),
-              payload: options.comment, // Текстовый комментарий
+              // Передаем BOC вместо простого текста для корректной обработки
+              payload: commentBoc,
               stateInit: options.stateInit, // StateInit для деплоя контрактов
               extraCurrency: options.extraCurrency, // Дополнительные валюты (Jettons)
             },
@@ -110,7 +129,8 @@ export function useTonConnect() {
         const formattedMessages = messages.map(msg => ({
           address: msg.recipient,
           amount: toNano(msg.amount.toString()).toString(),
-          payload: msg.comment,
+          // Преобразуем комментарий в BOC, если он есть
+          payload: msg.comment ? commentToBoc(msg.comment) : undefined,
           stateInit: msg.stateInit,
           extraCurrency: msg.extraCurrency
         }));

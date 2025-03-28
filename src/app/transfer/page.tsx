@@ -306,12 +306,15 @@ export default function TransferPage() {
           amount: amount,
           
           // Проверяем и устанавливаем тип сети
-          network: wallet?.account.chain, // Автоматически использует сеть подключенного кошелька
+          // Автоматически использует сеть подключенного кошелька
+          // Для тестовой сети TON код сети: "-239"
+          network: wallet?.account.chain,
           
-          // Опциональные параметры для пользователя
+          // Комментарий передается как есть, SDK сам выполнит правильное кодирование
+          // Нет необходимости вручную конвертировать в BOC или base64
           comment: comment || undefined,
           
-          // Расширенные параметры (не используются в этом примере)
+          // Расширенные параметры (отключены в этом примере)
           // stateInit: undefined, // Для деплоя контрактов
           // extraCurrency: undefined // Для отправки Jetton'ов
         });
@@ -330,6 +333,13 @@ export default function TransferPage() {
         // Проверка на конкретные типы ошибок
         if (error.toString().includes('User rejected the transaction')) {
           setTxError('Вы отклонили транзакцию');
+          setTxStatus('error');
+        } else if (error.toString().includes('Invalid magic') || error.toString().includes('deserializeBoc')) {
+          // Ошибка с форматированием данных
+          setTxError('Ошибка форматирования данных транзакции. Проверьте, что комментарий содержит только допустимые символы.');
+          setTxStatus('error');
+        } else if (error.toString().includes('Cell overflow')) {
+          setTxError('Комментарий слишком длинный. Максимальная длина комментария ограничена ~120 символами.');
           setTxStatus('error');
         } else if (error.toString().includes('was not sent') || error.toString().includes('Unable to verify') || error.toString().includes('Невозможно проверить')) {
           // Показываем особое сообщение с инструкциями
