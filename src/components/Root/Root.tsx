@@ -46,34 +46,16 @@ function RootInner({ children }: PropsWithChildren) {
     initDataUser && setLocale(initDataUser.languageCode);
   }, [initDataUser]);
 
-  // Добавляем обработку параметра startapp для перенаправления на страницу перевода
+  // Только логируем параметр startParam без перенаправлений
   useEffect(() => {
     if (lp.startParam && typeof window !== 'undefined') {
-      console.log('Получен startapp параметр:', lp.startParam);
-      
-      // Обрабатываем разные форматы startapp параметра
-      if (lp.startParam.includes('_')) {
-        // Формат: address_amount_comment
-        const [address, amount, comment] = lp.startParam.split('_');
-        if (address) {
-          const transferParams = new URLSearchParams();
-          transferParams.append('address', address);
-          if (amount) transferParams.append('amount', amount);
-          if (comment) transferParams.append('comment', comment);
-          
-          window.location.href = `/transfer?${transferParams.toString()}`;
-        }
-      } else if (lp.startParam.startsWith('transfer?')) {
-        // Формат: transfer?address=xxx&amount=yyy&comment=zzz
-        const paramsString = lp.startParam.substring('transfer?'.length);
-        window.location.href = `/transfer?${paramsString}`;
-      }
+      console.log('Получен startapp параметр в Root:', lp.startParam);
     }
   }, [lp.startParam]);
 
   return (
     <TonConnectUIProvider 
-      manifestUrl="https://raw.githubusercontent.com/GovnoStars/Wallet/refs/heads/main/public/tonconnect-manifest.json"
+      manifestUrl="https://wallet-git-main-skulidropeks-projects.vercel.app/tonconnect-manifest.json"
       uiPreferences={{
         theme: isDark ? THEME.DARK : THEME.LIGHT
       }}

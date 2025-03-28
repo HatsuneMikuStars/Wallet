@@ -16,62 +16,47 @@ import tonSvg from './_assets/ton.svg';
 export default function Home() {
   const t = useTranslations('i18n');
   const launchParams = useLaunchParams();
-  const [isRedirecting, setIsRedirecting] = useState(false);
+  const [startParam, setStartParam] = useState('');
 
+  // Просто сохраняем и отображаем startParam без перенаправлений
   useEffect(() => {
-    // Если есть параметр startapp, то пытаемся обработать его
     if (launchParams.startParam && typeof window !== 'undefined') {
-      setIsRedirecting(true);
-      console.log('Параметр startapp обнаружен:', launchParams.startParam);
-
-      setTimeout(() => {
-        // Ничего не делаем, обработка уже происходит в Root компоненте
-        // Эта задержка нужна для отображения информации о редиректе
-      }, 1500);
+      console.log('Параметр startapp на главной странице:', launchParams.startParam);
+      setStartParam(launchParams.startParam);
     }
   }, [launchParams.startParam]);
 
   return (
     <Page back={false}>
       <List>
-        <Section
-          header="TON Transfer"
-          footer="Create links with TON transfer parameters or connect your wallet"
-        >
+        <Section>
           <TransferLink />
         </Section>
-        
-        <Section
-          header="Features"
-          footer="You can use these pages to learn more about features, provided by Telegram Mini Apps and other useful projects"
-        >
+        <Section header="Crypto">
           <Link href="/ton-connect">
             <Cell
-              before={
-                <Image
-                  src={tonSvg.src}
-                  style={{ backgroundColor: '#007AFF' }}
-                />
-              }
-              subtitle="Connect your TON wallet"
+              before={<Image style={{ width: 28, height: 28 }} src={tonSvg} />}
+              subtitle="Connect your wallet via TON Connect"
             >
               TON Connect
             </Cell>
           </Link>
         </Section>
-        <Section
-          header="Application Launch Data"
-          footer="These pages help developer to learn more about current launch information"
-        >
-          <Link href="/init-data">
-            <Cell subtitle="User data, chat information, technical data">
-              Init Data
-            </Cell>
+        <Section header="Navigation">
+          <Link href="/counter">
+            <Cell subtitle="Persisted Counter Example">Counter</Cell>
           </Link>
-          <Link href="/launch-params">
-            <Cell subtitle="Platform identifier, Mini Apps version, etc.">
-              Launch Parameters
-            </Cell>
+          <Link href="/back-button">
+            <Cell subtitle="Back Button Example">Back Button</Cell>
+          </Link>
+          <Link href="/haptic-feedback">
+            <Cell subtitle="Haptic Feedback Example">Haptic Feedback</Cell>
+          </Link>
+          <Link href="/qr-scanner">
+            <Cell subtitle="QR Scanner Example">QR Scanner</Cell>
+          </Link>
+          <Link href="/main-button">
+            <Cell subtitle="Main Button Example">Main Button</Cell>
           </Link>
           <Link href="/theme-params">
             <Cell subtitle="Telegram application palette information">
@@ -88,19 +73,18 @@ export default function Home() {
           TON Wallet
         </Title>
         
-        {isRedirecting ? (
-          <div className="text-center">
-            <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-blue-500 rounded-full mx-auto mb-4"></div>
-            <Text>Перенаправление на страницу перевода...</Text>
-          </div>
-        ) : (
-          <div className="text-center">
-            <Text>
-              Добро пожаловать в TON Wallet.
-              Используйте это приложение для отправки и получения TON.
-            </Text>
-          </div>
-        )}
+        <div className="text-center p-4">
+          {startParam ? (
+            <div className="mb-4">
+              <Text className="mb-2 font-bold">Параметр startapp:</Text>
+              <div className="p-3 bg-gray-100 rounded text-left">
+                {startParam}
+              </div>
+            </div>
+          ) : (
+            <Text>Нет параметров запуска</Text>
+          )}
+        </div>
       </Card>
     </Page>
   );
