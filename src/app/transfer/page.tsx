@@ -307,8 +307,10 @@ export default function TransferPage() {
       });
 
       // Создаем транзакцию в строгом соответствии с форматом TON Connect
+      // TON Space требует правильно настроенную транзакцию
       const transaction: any = {
-        validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут
+        // Увеличиваем время действия до 10 минут, чтобы пользователь успел подтвердить
+        validUntil: Math.floor(Date.now() / 1000) + 600, 
         messages: [
           {
             address: address,
@@ -342,6 +344,7 @@ export default function TransferPage() {
 
       // Отправляем транзакцию
       try {
+        // В TON Space рекомендуется иметь достаточно TON для оплаты комиссии (0.05-1.05 TON)
         const result = await tonConnectUI.sendTransaction(transaction);
         
         console.log('Транзакция отправлена:', result);
@@ -359,9 +362,12 @@ export default function TransferPage() {
         if (error.toString().includes('User rejected the transaction')) {
           setTxError('Вы отклонили транзакцию');
           setTxStatus('error');
-        } else if (error.toString().includes('was not sent') || error.toString().includes('Unable to verify')) {
-          // Показываем особое сообщение с кнопкой для открытия кошелька
-          setTxError('Пожалуйста, откройте кошелек Wallet и подтвердите транзакцию вручную');
+        } else if (error.toString().includes('was not sent') || error.toString().includes('Unable to verify') || error.toString().includes('Невозможно проверить')) {
+          // Показываем особое сообщение с инструкциями из документации TON Space
+          setTxError(`Невозможно проверить транзакцию. Попробуйте: 
+          1) Переключиться на другое интернет-соединение
+          2) Проверить синхронизацию времени на устройстве
+          3) Перезагрузить устройство и повторить отправку`);
           
           // Попытка открыть кошелек
           try {
@@ -372,6 +378,9 @@ export default function TransferPage() {
             console.error('Не удалось открыть кошелек:', openError);
           }
           
+          setTxStatus('error');
+        } else if (error.toString().includes('недостаточно TON') || error.toString().includes('not enough balance')) {
+          setTxError('У вас недостаточно TON для оплаты комиссии. Необходимо минимум 0.05 TON.');
           setTxStatus('error');
         } else {
           setTxError(error instanceof Error ? error.message : 'Неизвестная ошибка: ' + String(error));

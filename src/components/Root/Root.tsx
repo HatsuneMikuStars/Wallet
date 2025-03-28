@@ -61,6 +61,22 @@ function RootInner({ children }: PropsWithChildren) {
       }}
       actionsConfiguration={{
         returnStrategy: 'back',
+        twaReturnUrl: typeof window !== 'undefined' 
+          ? `https://${window.location.host}` 
+          : 'https://wallet-git-main-skulidropeks-projects.vercel.app',
+      }}
+      walletsListConfiguration={{
+        includeWallets: [
+          {
+            appName: "telegram-wallet",
+            name: "TON Wallet",
+            imageUrl: "https://wallet.tg/images/logo-288.png",
+            aboutUrl: "https://wallet.tg/",
+            universalLink: "https://t.me/wallet/start",
+            bridgeUrl: "https://bridge.tonapi.io/bridge",
+            platforms: ["ios", "android", "macos", "windows", "linux"]
+          }
+        ]
       }}
     >
       <AppRoot
