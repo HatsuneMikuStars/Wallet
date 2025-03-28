@@ -153,3 +153,51 @@ more details.
 - [Telegram developers community chat](https://t.me/devs)
 - [TON Documentation](https://docs.ton.org/)
 - [TON Connect Documentation](https://docs.ton.org/develop/dapps/ton-connect/overview)
+
+# TON Wallet для Telegram Mini Apps
+
+## Использование Telegram Mini Apps с параметрами
+
+Для передачи параметров перевода через Telegram Mini Apps, используйте следующие форматы ссылок:
+
+### 1. Формат с разделителями (рекомендуемый)
+
+```
+https://t.me/your_bot_username/app?startapp=EQD2NmD_lH5f5u1Kj3KfGyTvhZSX0Eg6qp2a5IQUKXxOG21n_0.1_тестовый_перевод
+```
+
+Где параметры разделены символом подчеркивания `_`:
+- `EQD2NmD_lH5f5u1Kj3KfGyTvhZSX0Eg6qp2a5IQUKXxOG21n` - адрес получателя
+- `0.1` - сумма в TON 
+- `тестовый_перевод` - комментарий к переводу
+
+### 2. Формат с параметрами URL
+
+```
+https://t.me/your_bot_username/app?startapp=transfer?address=EQD2NmD_lH5f5u1Kj3KfGyTvhZSX0Eg6qp2a5IQUKXxOG21n%26amount=0.1%26comment=тестовый%20перевод
+```
+
+Внимание: при использовании этого формата символы `&` должны быть закодированы как `%26`!
+
+### 3. Прямая ссылка (работает только в Telegram)
+
+Также можно использовать прямые ссылки на приложение внутри Telegram:
+
+```
+https://t.me/your_bot_username/app
+```
+
+## Настройка бота для Telegram Mini Apps
+
+1. Создайте нового бота через [@BotFather](https://t.me/BotFather)
+2. Добавьте мини-приложение командой `/newapp` 
+3. Укажите URL вашего TON-кошелька
+4. Используйте полученную ссылку с параметрами
+
+## Технические детали
+
+Параметры передаются через поле `startParam` в Telegram Mini Apps API. Код приложения обрабатывает эти параметры и перенаправляет пользователя на страницу перевода с соответствующими значениями.
+
+### Ограничения параметра startapp:
+- Длина до 512 символов
+- Допустимые символы: A-Z, a-z, 0-9, _ (подчеркивание), - (минус)

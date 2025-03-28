@@ -2,12 +2,14 @@
 
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useLaunchParams } from '@telegram-apps/sdk-react';
 import { Page } from '@/components/Page';
 import { Text, Card } from '@telegram-apps/telegram-ui';
 
 export default function SendPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const launchParams = useLaunchParams();
   
   useEffect(() => {
     // Получаем параметры из URL
@@ -15,17 +17,36 @@ export default function SendPage() {
     const amount = searchParams.get('ton') || '';
     const comment = searchParams.get('comment') || '';
     
+    // Смотрим, есть ли параметры в startapp
+    let startAppAddress = '';
+    let startAppAmount = '';
+    let startAppComment = '';
+    
+    if (launchParams.startParam) {
+      console.log('Получен startapp параметр в send:', launchParams.startParam);
+      
+      // Проверяем формат параметра (address_amount_comment)
+      if (launchParams.startParam.includes('_')) {
+        const [paramAddress, paramAmount, paramComment] = launchParams.startParam.split('_');
+        startAppAddress = paramAddress || '';
+        startAppAmount = paramAmount || '';
+        startAppComment = paramComment || '';
+      }
+    }
+    
     // Создаем новые параметры для существующей страницы transfer
     const transferParams = new URLSearchParams();
-    transferParams.append('address', address);
-    transferParams.append('amount', amount);
-    if (comment) {
-      transferParams.append('comment', comment);
+    transferParams.append('address', address || startAppAddress);
+    transferParams.append('amount', amount || startAppAmount);
+    
+    const finalComment = comment || startAppComment;
+    if (finalComment) {
+      transferParams.append('comment', finalComment);
     }
     
     // Перенаправляем на страницу transfer с преобразованными параметрами
     router.replace(`/transfer?${transferParams.toString()}`);
-  }, [router, searchParams]);
+  }, [router, searchParams, launchParams.startParam]);
   
   return (
     <Page>

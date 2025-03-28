@@ -2,16 +2,34 @@
 
 import { Section, Cell, Image, List } from '@telegram-apps/telegram-ui';
 import { useTranslations } from 'next-intl';
+import { useLaunchParams } from '@telegram-apps/sdk-react';
+import { useEffect, useState } from 'react';
 
 import { Link } from '@/components/Link/Link';
 import { LocaleSwitcher } from '@/components/LocaleSwitcher/LocaleSwitcher';
 import { Page } from '@/components/Page';
 import { TransferLink } from '@/components/TransferLink';
+import { Card, Text, Title } from '@telegram-apps/telegram-ui';
 
 import tonSvg from './_assets/ton.svg';
 
 export default function Home() {
   const t = useTranslations('i18n');
+  const launchParams = useLaunchParams();
+  const [isRedirecting, setIsRedirecting] = useState(false);
+
+  useEffect(() => {
+    // Если есть параметр startapp, то пытаемся обработать его
+    if (launchParams.startParam && typeof window !== 'undefined') {
+      setIsRedirecting(true);
+      console.log('Параметр startapp обнаружен:', launchParams.startParam);
+
+      setTimeout(() => {
+        // Ничего не делаем, обработка уже происходит в Root компоненте
+        // Эта задержка нужна для отображения информации о редиректе
+      }, 1500);
+    }
+  }, [launchParams.startParam]);
 
   return (
     <Page back={false}>
@@ -65,6 +83,25 @@ export default function Home() {
           <LocaleSwitcher/>
         </Section>
       </List>
+      <Card>
+        <Title level="2" className="text-center mb-4">
+          TON Wallet
+        </Title>
+        
+        {isRedirecting ? (
+          <div className="text-center">
+            <div className="animate-spin h-8 w-8 border-t-2 border-b-2 border-blue-500 rounded-full mx-auto mb-4"></div>
+            <Text>Перенаправление на страницу перевода...</Text>
+          </div>
+        ) : (
+          <div className="text-center">
+            <Text>
+              Добро пожаловать в TON Wallet.
+              Используйте это приложение для отправки и получения TON.
+            </Text>
+          </div>
+        )}
+      </Card>
     </Page>
   );
 }

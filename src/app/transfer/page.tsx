@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import { Page } from '@/components/Page';
 import { TonConnectButton, useTonAddress, useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { beginCell } from '@ton/ton';
+import { useLaunchParams } from '@telegram-apps/sdk-react';
 import {
   Button,
   Card,
@@ -38,17 +39,58 @@ const normalizeAddress = (address: string): string => {
  * - address: адрес кошелька получателя
  * - amount: количество TON для перевода
  * - comment: комментарий к переводу
+ * Также может получать параметры через startParam в формате address_amount_comment
  */
 export default function TransferPage() {
   const searchParams = useSearchParams();
+  const launchParams = useLaunchParams();
   const [tonConnectUI] = useTonConnectUI();
   const wallet = useTonWallet();
   const userAddress = useTonAddress();
 
-  // Получаем параметры из URL
-  const address = searchParams.get('address') || '';
-  const amount = searchParams.get('amount') || '0';
-  const comment = searchParams.get('comment') || '';
+  // Получаем параметры из URL или из startParam
+  const [address, setAddress] = useState<string>('');
+  const [amount, setAmount] = useState<string>('0');
+  const [comment, setComment] = useState<string>('');
+
+  // Инициализируем параметры из URL или startParam
+  useEffect(() => {
+    // Приоритет у URL-параметров
+    const urlAddress = searchParams.get('address');
+    const urlAmount = searchParams.get('amount');
+    const urlComment = searchParams.get('comment');
+
+    if (urlAddress) {
+      setAddress(urlAddress);
+    }
+    
+    if (urlAmount) {
+      setAmount(urlAmount);
+    }
+    
+    if (urlComment) {
+      setComment(urlComment);
+    }
+
+    // Если параметры не определены из URL, пробуем получить из startParam
+    if ((!urlAddress || !urlAmount) && launchParams.startParam) {
+      if (launchParams.startParam.includes('_')) {
+        const [paramAddress, paramAmount, paramComment] = launchParams.startParam.split('_');
+        
+        if (paramAddress && !urlAddress) {
+          setAddress(paramAddress);
+        }
+        
+        if (paramAmount && !urlAmount) {
+          setAmount(paramAmount);
+        }
+        
+        if (paramComment && !urlComment) {
+          setComment(paramComment);
+        }
+      }
+    }
+  }, [searchParams, launchParams.startParam]);
 
   // Логируем параметры
   useEffect(() => {
