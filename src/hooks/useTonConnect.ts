@@ -73,6 +73,26 @@ export function useTonConnect() {
   };
 
   /**
+   * Нормализация адреса TON для безопасной отправки
+   * @param rawAddress Адрес в любом поддерживаемом формате (EQ.., UQ.., raw)
+   * @returns Нормализованный адрес в формате raw без префикса
+   */
+  const normalizeAddress = (rawAddress: string): string => {
+    try {
+      // Используем класс Address для парсинга и нормализации адреса
+      const address = Address.parse(rawAddress);
+      
+      // Возвращаем нормализованный raw-адрес (без префикса EQ/UQ)
+      // TON Connect сам определит, какой формат адреса использовать
+      return address.toString();
+    } catch (e) {
+      console.error('Ошибка при нормализации адреса:', e);
+      // В случае ошибки возвращаем исходный адрес
+      return rawAddress;
+    }
+  };
+
+  /**
    * Отправка TON-транзакции с опциями
    * @param options Параметры транзакции
    * @returns Результат выполнения транзакции
@@ -87,13 +107,17 @@ export function useTonConnect() {
         // Преобразуем комментарий в BOC формат если он есть
         const commentBoc = options.comment ? commentToBoc(options.comment) : undefined;
 
+        // Нормализуем адрес получателя
+        const normalizedAddress = normalizeAddress(options.recipient);
+
         // Создаем транзакцию с полным набором параметров
         const transactionRequest: SendTransactionRequest = {
           validUntil: Math.floor(Date.now() / 1000) + 360, // 5 минут на подтверждение
           network: options.network, // Указание сети (если не указана, используется текущая в кошельке)
           messages: [
             {
-              address: options.recipient,
+              // Используем нормализованный адрес вместо исходного
+              address: normalizedAddress,
               amount: toNano(options.amount.toString()).toString(),
               // Передаем BOC вместо простого текста для корректной обработки
               payload: commentBoc,
@@ -127,7 +151,8 @@ export function useTonConnect() {
 
         // Преобразуем массив опций в формат TON Connect
         const formattedMessages = messages.map(msg => ({
-          address: msg.recipient,
+          // Нормализуем каждый адрес получателя
+          address: normalizeAddress(msg.recipient),
           amount: toNano(msg.amount.toString()).toString(),
           // Преобразуем комментарий в BOC, если он есть
           payload: msg.comment ? commentToBoc(msg.comment) : undefined,

@@ -5,10 +5,29 @@ import { useTonConnect } from '@/hooks/useTonConnect';
 import { Button, Card, Input, Spinner, List, Section, Text, Title } from '@telegram-apps/telegram-ui';
 import { CHAIN } from '@tonconnect/sdk';
 import { useEffect, useState } from 'react';
+import { Address } from '@ton/core';
 
-// Функция для проверки, выглядит ли строка как TON адрес
+// Улучшенная функция для проверки, выглядит ли строка как TON адрес
 const isValidTonAddress = (address: string): boolean => {
-  return /^(EQ|UQ)[a-zA-Z0-9_-]{46,48}$/.test(address);
+  try {
+    // Пытаемся распарсить адрес через класс Address из @ton/core
+    // Это поддерживает все форматы адресов TON
+    Address.parse(address);
+    return true;
+  } catch (e) {
+    // Если произошла ошибка при парсинге, адрес некорректный
+    return false;
+  }
+};
+
+// Функция для форматирования адреса в удобочитаемый вид
+const formatAddress = (address: string): string => {
+  try {
+    const parsedAddress = Address.parse(address);
+    return parsedAddress.toString();
+  } catch (e) {
+    return address;
+  }
 };
 
 const TonWalletPage = () => {
@@ -20,13 +39,32 @@ const TonWalletPage = () => {
   const [txResult, setTxResult] = useState('');
   const [addressError, setAddressError] = useState('');
   const [txDetails, setTxDetails] = useState<any>(null);
+  
+  // Определение типа адреса (EQ/UQ/raw)
+  const [addressType, setAddressType] = useState<string>('');
 
   // Валидация адреса при вводе
   useEffect(() => {
-    if (recipient && !isValidTonAddress(recipient)) {
-      setAddressError('Неверный формат адреса. Адрес должен начинаться с "EQ" или "UQ" и содержать 48 символов.');
+    if (!recipient) {
+      setAddressError('');
+      setAddressType('');
+      return;
+    }
+    
+    if (!isValidTonAddress(recipient)) {
+      setAddressError('Неверный формат адреса TON. Поддерживаются форматы с префиксами EQ, UQ или raw-адреса.');
+      setAddressType('');
     } else {
       setAddressError('');
+      
+      // Определяем тип адреса для информации
+      if (recipient.startsWith('EQ')) {
+        setAddressType('bounceable (EQ)');
+      } else if (recipient.startsWith('UQ')) {
+        setAddressType('non-bounceable (UQ)');
+      } else {
+        setAddressType('raw');
+      }
     }
   }, [recipient]);
 
@@ -97,6 +135,8 @@ const TonWalletPage = () => {
           errorMessage = 'Недостаточно средств на балансе для выполнения транзакции';
         } else if (e.message.includes('Cell overflow')) {
           errorMessage = 'Комментарий слишком длинный. Сократите его размер.';
+        } else if (e.message.includes('Invalid address')) {
+          errorMessage = 'Неверный формат адреса. Проверьте правильность ввода.';
         } else {
           errorMessage = e.message;
         }
@@ -179,6 +219,15 @@ const TonWalletPage = () => {
                       marginTop: 4
                     }}>
                       {addressError}
+                    </Text>
+                  )}
+                  {addressType && !addressError && (
+                    <Text style={{ 
+                      color: 'green', 
+                      fontSize: 12,
+                      marginTop: 4
+                    }}>
+                      Тип адреса: {addressType}
                     </Text>
                   )}
                 </div>
