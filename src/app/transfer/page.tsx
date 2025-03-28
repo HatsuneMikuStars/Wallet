@@ -319,36 +319,68 @@ export default function TransferPage() {
 
       // Добавляем комментарий только если он указан
       if (comment) {
-        // Создаем простой текстовый комментарий
-        // В TON Connect 2.1+ поддерживается прямая передача строки как комментария
-        transaction.messages[0].payload = comment;
+        // Кодируем комментарий в base64 для правильной передачи через TON Connect
+        // В TON комментарии должны быть кодированы специальным образом
+        const textEncoder = new TextEncoder();
+        const commentBytes = textEncoder.encode(comment);
+        
+        // Создаем массив байтов с 4 нулевыми байтами в начале (32 бита = 4 байта)
+        // и добавляем к нему байты комментария
+        const combinedBytes = new Uint8Array(4 + commentBytes.length);
+        combinedBytes.set(new Uint8Array(4), 0); // Заполняем первые 4 байта нулями
+        combinedBytes.set(commentBytes, 4);
+        
+        // Кодируем в base64, обходя проблему итерации по Uint8Array
+        let binaryString = '';
+        for (let i = 0; i < combinedBytes.length; i++) {
+          binaryString += String.fromCharCode(combinedBytes[i]);
+        }
+        transaction.messages[0].payload = btoa(binaryString);
       }
 
       console.log('Отправка транзакции:', transaction);
 
       // Отправляем транзакцию
-      const result = await tonConnectUI.sendTransaction(transaction);
-      
-      console.log('Транзакция отправлена:', result);
-      
-      // Используем идентификатор транзакции из ответа
-      if (result && result.boc) {
-        setTxHash(result.boc);
+      try {
+        const result = await tonConnectUI.sendTransaction(transaction);
+        
+        console.log('Транзакция отправлена:', result);
+        
+        // Используем идентификатор транзакции из ответа
+        if (result && result.boc) {
+          setTxHash(result.boc);
+        }
+        
+        setTxStatus('success');
+      } catch (error: any) {
+        console.error('Ошибка при отправке транзакции:', error);
+        
+        // Проверка на конкретные типы ошибок
+        if (error.toString().includes('User rejected the transaction')) {
+          setTxError('Вы отклонили транзакцию');
+          setTxStatus('error');
+        } else if (error.toString().includes('was not sent') || error.toString().includes('Unable to verify')) {
+          // Показываем особое сообщение с кнопкой для открытия кошелька
+          setTxError('Пожалуйста, откройте кошелек Wallet и подтвердите транзакцию вручную');
+          
+          // Попытка открыть кошелек
+          try {
+            if (typeof window !== 'undefined') {
+              window.open('https://t.me/wallet', '_blank');
+            }
+          } catch (openError) {
+            console.error('Не удалось открыть кошелек:', openError);
+          }
+          
+          setTxStatus('error');
+        } else {
+          setTxError(error instanceof Error ? error.message : 'Неизвестная ошибка: ' + String(error));
+          setTxStatus('error');
+        }
       }
-      
-      setTxStatus('success');
-    } catch (error: any) {
-      console.error('Ошибка при отправке транзакции:', error);
-      
-      // Проверка на конкретные типы ошибок
-      if (error.toString().includes('User rejected the transaction')) {
-        setTxError('Вы отклонили транзакцию');
-      } else if (error.toString().includes('was not sent')) {
-        setTxError('Транзакция не была отправлена. Попробуйте открыть кошелек и подтвердить транзакцию вручную.');
-      } else {
-        setTxError(error instanceof Error ? error.message : 'Неизвестная ошибка: ' + String(error));
-      }
-      
+    } catch (outerError: any) {
+      console.error('Внешняя ошибка при отправке транзакции:', outerError);
+      setTxError(outerError instanceof Error ? outerError.message : 'Неизвестная ошибка: ' + String(outerError));
       setTxStatus('error');
     }
   };
@@ -803,10 +835,28 @@ export default function TransferPage() {
               <Text style={{ 
                 fontSize: '14px', 
                 color: '#ff3b30',
-                lineHeight: '1.5'
+                lineHeight: '1.5',
+                marginBottom: '12px'
               }}>
                 {txError}
               </Text>
+
+              {/* Кнопка для открытия кошелька, если ошибка связана с подтверждением транзакции */}
+              {txError.includes('откройте кошелек') && (
+                <Button
+                  size="m"
+                  onClick={() => window.open('https://t.me/wallet', '_blank')}
+                  style={{
+                    borderRadius: '8px',
+                    background: 'rgba(255, 59, 48, 0.2)',
+                    border: '1px solid rgba(255, 59, 48, 0.4)',
+                    color: '#ff3b30',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Открыть кошелек
+                </Button>
+              )}
             </Card>
           </div>
         )}
