@@ -286,27 +286,66 @@ export default function TransferPage() {
       // Преобразуем строковое значение суммы в наноТоны (1 TON = 10^9 наноТОН)
       const amountNano = Math.floor(parseFloat(transactionData) * 1_000_000_000);
 
-      // Создаем транзакцию
+      // Проверяем, что сумма корректна
+      if (amountNano <= 0) {
+        setTxError('Сумма должна быть больше 0');
+        setTxStatus('error');
+        return;
+      }
+
+      // Проверяем формат адреса
+      if (!address.startsWith('EQ') && !address.startsWith('UQ')) {
+        setTxError('Неверный формат адреса');
+        setTxStatus('error');
+        return;
+      }
+
+      console.log('Подготовка транзакции:', {
+        to: address,
+        amount: amountNano.toString(),
+        comment: comment
+      });
+
+      // Создаем транзакцию с дополнительными полями
       const transaction = {
-        validUntil: Math.floor(Date.now() / 1000) + 360, // Действительна 5 минут
+        validUntil: Math.floor(Date.now() / 1000) + 600, // Увеличиваем время действия до 10 минут
         messages: [
           {
             address: address,
             amount: amountNano.toString(),
-            payload: comment ? comment : undefined, // Добавляем комментарий, если он есть
+            payload: comment || undefined, // Исправляем paylaod на payload и задаем комментарий
           },
         ],
       };
 
-      // Отправляем транзакцию
-      const result = await tonConnectUI.sendTransaction(transaction);
+      console.log('Отправка транзакции:', transaction);
+
+      // Отправляем транзакцию с повторными попытками
+      let result;
+      try {
+        // Первая попытка отправки
+        result = await tonConnectUI.sendTransaction(transaction);
+      } catch (retryError) {
+        console.warn('Первая попытка отправки не удалась, пробуем еще раз:', retryError);
+        
+        // Ждем секунду перед повторной попыткой
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Пробуем отправить транзакцию еще раз с обновленным временем
+        const retryTransaction = {
+          ...transaction,
+          validUntil: Math.floor(Date.now() / 1000) + 600,
+        };
+        
+        result = await tonConnectUI.sendTransaction(retryTransaction);
+      }
       
       console.log('Транзакция отправлена:', result);
       setTxHash(result.boc);
       setTxStatus('success');
     } catch (e) {
       console.error('Ошибка при отправке транзакции:', e);
-      setTxError(e instanceof Error ? e.message : 'Неизвестная ошибка');
+      setTxError(e instanceof Error ? e.message : 'Неизвестная ошибка: ' + String(e));
       setTxStatus('error');
     }
   };

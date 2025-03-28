@@ -57,7 +57,10 @@ function RootInner({ children }: PropsWithChildren) {
     <TonConnectUIProvider 
       manifestUrl="https://wallet-git-main-skulidropeks-projects.vercel.app/tonconnect-manifest.json"
       uiPreferences={{
-        theme: isDark ? THEME.DARK : THEME.LIGHT
+        theme: isDark ? THEME.DARK : THEME.LIGHT,
+      }}
+      actionsConfiguration={{
+        returnStrategy: 'back',
       }}
     >
       <AppRoot
