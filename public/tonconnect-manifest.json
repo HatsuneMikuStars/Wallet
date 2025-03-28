@@ -1,5 +1,7 @@
 {
-  "url": "https://wallet-git-main-skulidropeks-projects.vercel.app",
-  "name": "TON Transfer",
-  "iconUrl": "https://raw.githubusercontent.com/GovnoStars/Wallet/refs/heads/main/public/logo.svg"
+  "url": "https://ton-connect.github.io",
+  "name": "TON Wallet Transfer",
+  "iconUrl": "https://wallet.ton.org/assets/main-logo.png",
+  "termsOfUseUrl": "https://ton-connect.github.io/terms-of-use.txt",
+  "privacyPolicyUrl": "https://ton-connect.github.io/privacy-policy.txt"
 }

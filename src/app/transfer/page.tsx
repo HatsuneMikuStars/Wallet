@@ -306,46 +306,49 @@ export default function TransferPage() {
         comment: comment
       });
 
-      // Создаем транзакцию с дополнительными полями
-      const transaction = {
-        validUntil: Math.floor(Date.now() / 1000) + 600, // Увеличиваем время действия до 10 минут
+      // Создаем транзакцию в строгом соответствии с форматом TON Connect
+      const transaction: any = {
+        validUntil: Math.floor(Date.now() / 1000) + 300, // 5 минут
         messages: [
           {
             address: address,
             amount: amountNano.toString(),
-            payload: comment || undefined, // Исправляем paylaod на payload и задаем комментарий
           },
         ],
       };
 
+      // Добавляем комментарий только если он указан
+      if (comment) {
+        // Создаем простой текстовый комментарий
+        // В TON Connect 2.1+ поддерживается прямая передача строки как комментария
+        transaction.messages[0].payload = comment;
+      }
+
       console.log('Отправка транзакции:', transaction);
 
-      // Отправляем транзакцию с повторными попытками
-      let result;
-      try {
-        // Первая попытка отправки
-        result = await tonConnectUI.sendTransaction(transaction);
-      } catch (retryError) {
-        console.warn('Первая попытка отправки не удалась, пробуем еще раз:', retryError);
-        
-        // Ждем секунду перед повторной попыткой
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Пробуем отправить транзакцию еще раз с обновленным временем
-        const retryTransaction = {
-          ...transaction,
-          validUntil: Math.floor(Date.now() / 1000) + 600,
-        };
-        
-        result = await tonConnectUI.sendTransaction(retryTransaction);
-      }
+      // Отправляем транзакцию
+      const result = await tonConnectUI.sendTransaction(transaction);
       
       console.log('Транзакция отправлена:', result);
-      setTxHash(result.boc);
+      
+      // Используем идентификатор транзакции из ответа
+      if (result && result.boc) {
+        setTxHash(result.boc);
+      }
+      
       setTxStatus('success');
-    } catch (e) {
-      console.error('Ошибка при отправке транзакции:', e);
-      setTxError(e instanceof Error ? e.message : 'Неизвестная ошибка: ' + String(e));
+    } catch (error: any) {
+      console.error('Ошибка при отправке транзакции:', error);
+      
+      // Проверка на конкретные типы ошибок
+      if (error.toString().includes('User rejected the transaction')) {
+        setTxError('Вы отклонили транзакцию');
+      } else if (error.toString().includes('was not sent')) {
+        setTxError('Транзакция не была отправлена. Попробуйте открыть кошелек и подтвердить транзакцию вручную.');
+      } else {
+        setTxError(error instanceof Error ? error.message : 'Неизвестная ошибка: ' + String(error));
+      }
+      
       setTxStatus('error');
     }
   };
