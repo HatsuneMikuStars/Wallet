@@ -3,15 +3,31 @@
 import { Page } from '@/components/Page';
 import { useTonConnect } from '@/hooks/useTonConnect';
 import { Button, Card, Input, Spinner, List, Section, Text, Title } from '@telegram-apps/telegram-ui';
+import { CHAIN } from '@tonconnect/sdk';
 import { useEffect, useState } from 'react';
 
+// Функция для проверки, выглядит ли строка как TON адрес
+const isValidTonAddress = (address: string): boolean => {
+  return /^(EQ|UQ)[a-zA-Z0-9_-]{46,48}$/.test(address);
+};
+
 const TonWalletPage = () => {
-  const { isConnected, connect, disconnect, sendTon, userAddress, wallet, network } = useTonConnect();
+  const { isConnected, connect, disconnect, sendTransaction, userAddress, wallet, network } = useTonConnect();
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
   const [comment, setComment] = useState('');
   const [loading, setLoading] = useState(false);
   const [txResult, setTxResult] = useState('');
+  const [addressError, setAddressError] = useState('');
+
+  // Валидация адреса при вводе
+  useEffect(() => {
+    if (recipient && !isValidTonAddress(recipient)) {
+      setAddressError('Неверный формат адреса. Адрес должен начинаться с "EQ" или "UQ" и содержать 48 символов.');
+    } else {
+      setAddressError('');
+    }
+  }, [recipient]);
 
   // Сбрасываем состояние результата транзакции при размонтировании
   useEffect(() => {
@@ -23,12 +39,35 @@ const TonWalletPage = () => {
   // Функция для отправки TON
   const handleSend = async () => {
     if (!isConnected || !recipient || !amount) return;
+    if (addressError) return;
+    
+    const parsedAmount = parseFloat(amount);
+    if (isNaN(parsedAmount) || parsedAmount <= 0) {
+      setTxResult('Ошибка: Сумма должна быть больше 0');
+      return;
+    }
     
     setLoading(true);
     setTxResult('');
     
     try {
-      const result = await sendTon(recipient, parseFloat(amount), comment);
+      // Полный набор параметров для транзакции
+      const result = await sendTransaction({
+        // Обязательные параметры
+        recipient: recipient, 
+        amount: parsedAmount,
+        
+        // Специальные параметры безопасности
+        network: CHAIN.MAINNET, // Явно указываем сеть для предотвращения ошибок
+        
+        // Опциональные параметры
+        comment: comment || undefined,
+        
+        // Параметры для более сложных сценариев (отключены в этом примере)
+        // stateInit: undefined, // Base64-encoded stateInit для деплоя контрактов
+        // extraCurrency: undefined // Для отправки Jetton'ов (токенов TON)
+      });
+      
       setTxResult(`Транзакция успешно отправлена!\nBoc: ${result?.boc.slice(0, 30)}...`);
     } catch (e) {
       console.error(e);
@@ -100,6 +139,15 @@ const TonWalletPage = () => {
                     value={recipient}
                     onChange={(e) => setRecipient(e.target.value)}
                   />
+                  {addressError && (
+                    <Text style={{ 
+                      color: 'red', 
+                      fontSize: 12,
+                      marginTop: 4
+                    }}>
+                      {addressError}
+                    </Text>
+                  )}
                 </div>
                 
                 <div style={{ marginBottom: 10 }}>
@@ -122,7 +170,7 @@ const TonWalletPage = () => {
                 <Button 
                   size="l" 
                   stretched 
-                  disabled={loading || !recipient || !amount} 
+                  disabled={loading || !recipient || !amount || !!addressError} 
                   onClick={handleSend}
                 >
                   {loading ? <Spinner size="s" /> : 'Отправить TON'}

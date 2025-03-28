@@ -47,20 +47,35 @@ function MyComponent() {
 }
 ```
 
-### Отправка транзакции
+### Отправка транзакции (базовый вариант)
 
 ```tsx
 import { useTonConnect } from '@/hooks/useTonConnect';
+import { CHAIN } from '@tonconnect/sdk';
 
 function SendForm() {
-  const { sendTon } = useTonConnect();
+  const { sendTransaction, isConnected, network } = useTonConnect();
   const [address, setAddress] = useState('');
   const [amount, setAmount] = useState('');
+  const [comment, setComment] = useState('');
   
   const handleSend = async () => {
+    if (!isConnected) return;
+    
     try {
-      // Отправить 1.5 TON на указанный адрес с комментарием
-      const result = await sendTon(address, 1.5, 'Платеж за товар');
+      // Базовый вариант с обязательными параметрами
+      const result = await sendTransaction({
+        // Обязательные параметры
+        recipient: address, 
+        amount: parseFloat(amount),
+        
+        // Всегда рекомендуется явно указывать сеть
+        network: CHAIN.MAINNET, // или CHAIN.TESTNET для тестовой сети
+        
+        // Опциональные параметры
+        comment: comment || undefined
+      });
+      
       console.log('Транзакция отправлена:', result);
     } catch (error) {
       console.error('Ошибка отправки:', error);
@@ -80,11 +95,186 @@ function SendForm() {
         onChange={(e) => setAmount(e.target.value)}
         placeholder="Сумма в TON"
       />
+      <input
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Комментарий"
+      />
       <button onClick={handleSend}>Отправить</button>
     </div>
   );
 }
 ```
+
+### Отправка транзакции (полный вариант со всеми параметрами)
+
+```tsx
+import { useTonConnect } from '@/hooks/useTonConnect';
+import { CHAIN } from '@tonconnect/sdk';
+
+function FullSendForm() {
+  const { sendTransaction, wallet } = useTonConnect();
+  
+  const handleFullSend = async () => {
+    try {
+      // Полный вариант со всеми доступными параметрами
+      const result = await sendTransaction({
+        // 1. Обязательные параметры:
+        recipient: "EQВашАдрес", // Адрес получателя (начинается с EQ или UQ)
+        amount: 1.5,            // Сумма в TON (не в нано)
+        
+        // 2. Параметры безопасности:
+        network: wallet?.account.chain || CHAIN.MAINNET, // Сеть из кошелька или явно указанная
+        
+        // 3. Дополнительные параметры:
+        comment: "Платеж за услуги",  // Текстовый комментарий к транзакции
+        
+        // 4. Расширенные параметры:
+        stateInit: "base64EncodedStateInit", // Для деплоя контрактов (если нужен)
+        extraCurrency: {                     // Для отправки Jetton'ов (токенов)
+          123456: "1000000000"  // ID токена: количество в минимальных единицах
+        }
+      });
+      
+      console.log('Транзакция отправлена:', result);
+      console.log('BOC:', result?.boc);           // BOC транзакции
+      console.log('Внешний ID:', result?.externalId); // Внешний ID транзакции
+    } catch (error) {
+      console.error('Ошибка отправки:', error);
+    }
+  };
+  
+  return (
+    <button onClick={handleFullSend}>Отправить полную транзакцию</button>
+  );
+}
+```
+
+### Отправка нескольких транзакций
+
+```tsx
+import { useTonConnect } from '@/hooks/useTonConnect';
+import { CHAIN } from '@tonconnect/sdk';
+
+function MultiSendForm() {
+  const { sendMultipleTransactions } = useTonConnect();
+  
+  const handleMultiSend = async () => {
+    try {
+      // Отправка до 4 транзакций за один вызов
+      const result = await sendMultipleTransactions([
+        // Транзакция 1 - основная отправка
+        { 
+          recipient: "EQАдрес1", 
+          amount: 0.1, 
+          comment: "Первый платеж",
+          network: CHAIN.MAINNET // Явно указываем сеть
+        },
+        
+        // Транзакция 2 - отправка с Jetton
+        { 
+          recipient: "EQАдрес2", 
+          amount: 0.01, // Минимальная сумма TON
+          extraCurrency: { 12345: "10000000" } // ID Jetton: количество
+        },
+        
+        // Транзакция 3 - деплой контракта
+        { 
+          recipient: "EQАдрес3", 
+          amount: 0.1,
+          stateInit: "base64EncodedStateInit" // StateInit для деплоя
+        }
+      ]);
+      
+      console.log('Мульти-транзакция отправлена:', result);
+    } catch (error) {
+      console.error('Ошибка отправки:', error);
+    }
+  };
+  
+  return (
+    <button onClick={handleMultiSend}>Отправить несколько транзакций</button>
+  );
+}
+```
+
+### Расширенные опции транзакций
+
+```tsx
+import { useTonConnect } from '@/hooks/useTonConnect';
+import { CHAIN } from '@tonconnect/sdk';
+
+function AdvancedSendForm() {
+  const { sendTransaction } = useTonConnect();
+  
+  // Деплой смарт-контракта через транзакцию
+  const handleDeployContract = async () => {
+    try {
+      // StateInit для деплоя нового контракта (предполагается, что он уже сгенерирован)
+      const stateInitBase64 = "ваш_base64_state_init"; 
+      
+      const result = await sendTransaction({
+        recipient: "EQАдресКонтракта", // Адрес будущего контракта
+        amount: 0.1,                  // Начальный баланс
+        network: CHAIN.MAINNET,       // Сеть
+        stateInit: stateInitBase64    // StateInit для деплоя
+      });
+      
+      console.log('Контракт отправлен на деплой:', result);
+    } catch (error) {
+      console.error('Ошибка деплоя:', error);
+    }
+  };
+  
+  // Отправка Jetton (токена TON)
+  const handleSendJetton = async () => {
+    try {
+      const jettonId = 123456;    // ID Jetton
+      const jettonAmount = "1000000000"; // Количество в минимальных единицах
+      
+      const result = await sendTransaction({
+        recipient: "EQАдресПолучателя",
+        amount: 0.05,  // Минимальная сумма TON для оплаты комиссии
+        network: CHAIN.MAINNET,
+        extraCurrency: {
+          [jettonId]: jettonAmount
+        }
+      });
+      
+      console.log('Отправлены токены Jetton:', result);
+    } catch (error) {
+      console.error('Ошибка отправки токенов:', error);
+    }
+  };
+  
+  return (
+    <div>
+      <button onClick={handleDeployContract}>Деплой контракта</button>
+      <button onClick={handleSendJetton}>Отправить токены</button>
+    </div>
+  );
+}
+```
+
+## Описание всех параметров транзакций
+
+### Параметры для sendTransaction
+
+| Параметр | Тип | Обязательный | Описание |
+|----------|-----|--------------|----------|
+| recipient | string | Да | Адрес получателя в формате EQ... или UQ... |
+| amount | number | Да | Сумма в TON (не в нано, например 0.1 TON) |
+| network | CHAIN | Рекомендуется | Сеть (CHAIN.MAINNET или CHAIN.TESTNET) |
+| comment | string | Нет | Текстовый комментарий к транзакции |
+| stateInit | string | Нет | Base64-закодированный StateInit для деплоя контрактов |
+| extraCurrency | Record<number, string> | Нет | ID валюты -> сумма для Jetton транзакций |
+
+### Ответ транзакции (SendTransactionResponse)
+
+| Поле | Тип | Описание |
+|------|-----|----------|
+| boc | string | BOC (Bag of Cells) транзакции |
+| externalId | string | Внешний ID транзакции |
 
 ## Рекомендации по пользовательскому интерфейсу
 

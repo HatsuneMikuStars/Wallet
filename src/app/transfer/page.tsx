@@ -19,6 +19,7 @@ import {
   useTonAddress, 
   useTonWallet
 } from '@tonconnect/ui-react';
+import { useTonConnect } from '@/hooks/useTonConnect';
 
 /**
  * Страница для перевода TON
@@ -45,6 +46,8 @@ export default function TransferPage() {
   const [parsingMethod, setParsingMethod] = useState<string>('');
   const [validationWarning, setValidationWarning] = useState<string>('');
   const [invalidComment, setInvalidComment] = useState<string>('');
+  
+  const { sendTransaction, isConnected, connect, disconnect } = useTonConnect();
   
   // Безопасное кодирование в Base64 с поддержкой Unicode
   const safeBase64Encode = (str: string): string => {
@@ -253,18 +256,9 @@ export default function TransferPage() {
     }
   }, [searchParams, launchParams.startParam]);
 
-  // Функция для подключения кошелька
-  const handleConnect = async () => {
-    try {
-      await tonConnectUI.connectWallet();
-    } catch (e) {
-      console.error('Ошибка при подключении кошелька:', e);
-    }
-  };
-
   // Функция для отправки транзакции
   const handleSendTransaction = async () => {
-    if (!wallet) {
+    if (!isConnected) {
       console.error('Кошелек не подключен');
       return;
     }
@@ -283,11 +277,9 @@ export default function TransferPage() {
       setTxStatus('loading');
       setTxError('');
 
-      // Преобразуем строковое значение суммы в наноТоны (1 TON = 10^9 наноТОН)
-      const amountNano = Math.floor(parseFloat(transactionData) * 1_000_000_000);
-
       // Проверяем, что сумма корректна
-      if (amountNano <= 0) {
+      const amount = parseFloat(transactionData);
+      if (amount <= 0) {
         setTxError('Сумма должна быть больше 0');
         setTxStatus('error');
         return;
@@ -301,51 +293,28 @@ export default function TransferPage() {
       }
 
       console.log('Подготовка транзакции:', {
-        to: address,
-        amount: amountNano.toString(),
+        recipient: address,
+        amount: amount,
         comment: comment
       });
 
-      // Создаем транзакцию в строгом соответствии с форматом TON Connect
-      // TON Space требует правильно настроенную транзакцию
-      const transaction: any = {
-        // Увеличиваем время действия до 10 минут, чтобы пользователь успел подтвердить
-        validUntil: Math.floor(Date.now() / 1000) + 600, 
-        messages: [
-          {
-            address: address,
-            amount: amountNano.toString(),
-          },
-        ],
-      };
-
-      // Добавляем комментарий только если он указан
-      if (comment) {
-        // Кодируем комментарий в base64 для правильной передачи через TON Connect
-        // В TON комментарии должны быть кодированы специальным образом
-        const textEncoder = new TextEncoder();
-        const commentBytes = textEncoder.encode(comment);
-        
-        // Создаем массив байтов с 4 нулевыми байтами в начале (32 бита = 4 байта)
-        // и добавляем к нему байты комментария
-        const combinedBytes = new Uint8Array(4 + commentBytes.length);
-        combinedBytes.set(new Uint8Array(4), 0); // Заполняем первые 4 байта нулями
-        combinedBytes.set(commentBytes, 4);
-        
-        // Кодируем в base64, обходя проблему итерации по Uint8Array
-        let binaryString = '';
-        for (let i = 0; i < combinedBytes.length; i++) {
-          binaryString += String.fromCharCode(combinedBytes[i]);
-        }
-        transaction.messages[0].payload = btoa(binaryString);
-      }
-
-      console.log('Отправка транзакции:', transaction);
-
-      // Отправляем транзакцию
+      // Отправляем транзакцию с помощью обновленного хука
       try {
-        // В TON Space рекомендуется иметь достаточно TON для оплаты комиссии (0.05-1.05 TON)
-        const result = await tonConnectUI.sendTransaction(transaction);
+        const result = await sendTransaction({
+          // Обязательные параметры
+          recipient: address,
+          amount: amount,
+          
+          // Проверяем и устанавливаем тип сети
+          network: wallet?.account.chain, // Автоматически использует сеть подключенного кошелька
+          
+          // Опциональные параметры для пользователя
+          comment: comment || undefined,
+          
+          // Расширенные параметры (не используются в этом примере)
+          // stateInit: undefined, // Для деплоя контрактов
+          // extraCurrency: undefined // Для отправки Jetton'ов
+        });
         
         console.log('Транзакция отправлена:', result);
         
@@ -363,7 +332,7 @@ export default function TransferPage() {
           setTxError('Вы отклонили транзакцию');
           setTxStatus('error');
         } else if (error.toString().includes('was not sent') || error.toString().includes('Unable to verify') || error.toString().includes('Невозможно проверить')) {
-          // Показываем особое сообщение с инструкциями из документации TON Space
+          // Показываем особое сообщение с инструкциями
           setTxError(`Невозможно проверить транзакцию. Попробуйте: 
           1) Переключиться на другое интернет-соединение
           2) Проверить синхронизацию времени на устройстве
@@ -396,7 +365,16 @@ export default function TransferPage() {
 
   // Функция для отключения кошелька
   const handleDisconnect = () => {
-    tonConnectUI.disconnect();
+    disconnect();
+  };
+  
+  // Функция для подключения кошелька
+  const handleConnect = async () => {
+    try {
+      await connect();
+    } catch (e) {
+      console.error('Ошибка при подключении кошелька:', e);
+    }
   };
 
   // Функция для форматирования адреса TON
@@ -629,14 +607,14 @@ export default function TransferPage() {
             paddingLeft: '10px',
             borderLeft: '3px solid var(--tg-theme-button-color, #2481cc)'
           }}>
-            {wallet ? 'Ваш кошелёк' : 'Подключение кошелька'}
+            {isConnected ? 'Ваш кошелёк' : 'Подключение кошелька'}
           </Text>
         }
         style={{
           margin: '14px 0'
         }}
       >
-        {!wallet ? (
+        {!isConnected ? (
           <div style={{ 
             padding: '24px 20px',
             textAlign: 'center',

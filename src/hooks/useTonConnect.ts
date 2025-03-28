@@ -2,6 +2,27 @@ import { useTonConnectUI, useTonWallet } from '@tonconnect/ui-react';
 import { useCallback, useMemo } from 'react';
 import { Address, beginCell, toNano } from '@ton/core';
 import { CHAIN } from '@tonconnect/sdk';
+import type { SendTransactionRequest, SendTransactionResponse } from '@tonconnect/ui';
+
+/**
+ * Интерфейс для отправки транзакций через TON Connect
+ * 
+ * @interface SendTransactionOptions
+ * @property {string} recipient - Адрес получателя (в любом формате)
+ * @property {number} amount - Сумма в TON (не в нано)
+ * @property {string} [comment] - Комментарий к транзакции (опционально)
+ * @property {CHAIN} [network] - Сеть для отправки (mainnet/testnet)
+ * @property {string} [stateInit] - Base64-encoded stateInit для контракта
+ * @property {Record<number, string>} [extraCurrency] - Дополнительные валюты (ID валюты -> сумма в строке)
+ */
+interface SendTransactionOptions {
+  recipient: string;
+  amount: number;
+  comment?: string;
+  network?: CHAIN;
+  stateInit?: string;
+  extraCurrency?: Record<number, string>;
+}
 
 /**
  * Хук для удобного взаимодействия с TON Connect
@@ -37,33 +58,72 @@ export function useTonConnect() {
   }, [wallet]);
 
   /**
-   * Отправка TON с комментарием
-   * @param recipient Адрес получателя
-   * @param amount Сумма в TON (не в нано)
-   * @param comment Комментарий к транзакции
+   * Отправка TON-транзакции с опциями
+   * @param options Параметры транзакции
+   * @returns Результат выполнения транзакции
    */
-  const sendTon = useCallback(
-    async (recipient: string, amount: number, comment?: string) => {
-      if (!wallet) return;
-
-      // Преобразуем комментарий в ячейку если он существует
-      const commentPayload = comment
-        ? beginCell().storeUint(0, 32).storeStringTail(comment).endCell()
-        : undefined;
+  const sendTransaction = useCallback(
+    async (options: SendTransactionOptions): Promise<SendTransactionResponse | undefined> => {
+      if (!wallet) return undefined;
 
       try {
-        return await tonConnectUI.sendTransaction({
+        console.log('Подготовка транзакции:', options);
+
+        // Создаем транзакцию с полным набором параметров
+        const transactionRequest: SendTransactionRequest = {
           validUntil: Math.floor(Date.now() / 1000) + 360, // 5 минут на подтверждение
+          network: options.network, // Указание сети (если не указана, используется текущая в кошельке)
           messages: [
             {
-              address: recipient,
-              amount: toNano(amount.toString()).toString(),
-              payload: commentPayload?.toBoc().toString('base64'),
+              address: options.recipient,
+              amount: toNano(options.amount.toString()).toString(),
+              payload: options.comment, // Текстовый комментарий
+              stateInit: options.stateInit, // StateInit для деплоя контрактов
+              extraCurrency: options.extraCurrency, // Дополнительные валюты (Jettons)
             },
           ],
-        });
+        };
+
+        console.log('Отправка транзакции:', transactionRequest);
+        return await tonConnectUI.sendTransaction(transactionRequest);
       } catch (e) {
         console.error('Ошибка при отправке транзакции:', e);
+        throw e;
+      }
+    },
+    [tonConnectUI, wallet]
+  );
+
+  /**
+   * Отправка нескольких транзакций в одном запросе (до 4 сообщений)
+   * @param messages Массив сообщений для отправки (макс. 4)
+   * @returns Результат выполнения транзакции
+   */
+  const sendMultipleTransactions = useCallback(
+    async (messages: SendTransactionOptions[]): Promise<SendTransactionResponse | undefined> => {
+      if (!wallet || !messages.length || messages.length > 4) return undefined;
+
+      try {
+        console.log('Подготовка мульти-транзакции:', messages);
+
+        // Преобразуем массив опций в формат TON Connect
+        const formattedMessages = messages.map(msg => ({
+          address: msg.recipient,
+          amount: toNano(msg.amount.toString()).toString(),
+          payload: msg.comment,
+          stateInit: msg.stateInit,
+          extraCurrency: msg.extraCurrency
+        }));
+
+        const transactionRequest: SendTransactionRequest = {
+          validUntil: Math.floor(Date.now() / 1000) + 360,
+          messages: formattedMessages
+        };
+
+        console.log('Отправка мульти-транзакции:', transactionRequest);
+        return await tonConnectUI.sendTransaction(transactionRequest);
+      } catch (e) {
+        console.error('Ошибка при отправке мульти-транзакции:', e);
         throw e;
       }
     },
@@ -74,7 +134,8 @@ export function useTonConnect() {
     isConnected,
     connect,
     disconnect,
-    sendTon,
+    sendTransaction,
+    sendMultipleTransactions,
     wallet,
     userAddress,
     network,
