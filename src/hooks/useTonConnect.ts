@@ -12,6 +12,11 @@ declare module '@tonconnect/ui-react' {
     returnToBot?: boolean;
     returnMessage?: string;
   }
+  
+  interface SendTransactionResponse {
+    boc: string;
+    externalId?: string;
+  }
 }
 
 // Определение типов для Telegram WebApp API
@@ -151,10 +156,30 @@ export function useTonConnect() {
    */
   const sendTransaction = useCallback(
     async (options: SendTransactionOptions): Promise<SendTransactionResponse | undefined> => {
-      if (!wallet) return undefined;
+      // В тестовом режиме не требуем подключенного кошелька
+      if (!options.testMode && !wallet) return undefined;
 
       try {
         console.log('Подготовка транзакции:', options);
+
+        // Если включен тестовый режим, симулируем транзакцию
+        if (options.testMode) {
+          console.log('Тестовый режим: симуляция транзакции без отправки');
+          
+          // Создаем фиктивный результат транзакции
+          const mockResult: SendTransactionResponse = {
+            boc: `test_mode_boc_${Date.now()}`,
+            externalId: `test_${Math.random().toString(36).substring(7)}`
+          };
+
+          // Если запрошен возврат в бота
+          if (options.returnToBot) {
+            const message = options.returnMessage || 'Тестовая транзакция симулирована';
+            returnToBot(message);
+          }
+
+          return mockResult;
+        }
 
         // Преобразуем комментарий в BOC формат если он есть
         const commentBoc = options.comment ? commentToBoc(options.comment) : undefined;
@@ -182,9 +207,9 @@ export function useTonConnect() {
         console.log('Отправка транзакции:', transactionRequest);
         const result = await tonConnectUI.sendTransaction(transactionRequest);
         
-        // Если запрошен возврат в бота после транзакции
+        // Если запрошен возврат в бота
         if (options.returnToBot && result) {
-          const message = options.returnMessage || 'Транзакция прошла успешно';
+          const message = options.returnMessage || 'Транзакция успешно отправлена';
           returnToBot(message);
         }
         
