@@ -4,6 +4,18 @@ import { Address, beginCell, toNano } from '@ton/core';
 import { CHAIN } from '@tonconnect/sdk';
 import type { SendTransactionRequest, SendTransactionResponse } from '@tonconnect/ui';
 
+// Определение типов для Telegram WebApp API
+declare global {
+  interface Window {
+    Telegram?: {
+      WebApp?: {
+        sendData: (data: string) => void;
+        close: () => void;
+      }
+    }
+  }
+}
+
 /**
  * Интерфейс для отправки транзакций через TON Connect
  * 
@@ -14,6 +26,8 @@ import type { SendTransactionRequest, SendTransactionResponse } from '@tonconnec
  * @property {CHAIN} [network] - Сеть для отправки (mainnet/testnet)
  * @property {string} [stateInit] - Base64-encoded stateInit для контракта
  * @property {Record<number, string>} [extraCurrency] - Дополнительные валюты (ID валюты -> сумма в строке)
+ * @property {boolean} [returnToBot] - Вернуться к боту после завершения транзакции
+ * @property {string} [returnMessage] - Сообщение для бота после завершения транзакции
  */
 interface SendTransactionOptions {
   recipient: string;
@@ -22,6 +36,8 @@ interface SendTransactionOptions {
   network?: CHAIN;
   stateInit?: string;
   extraCurrency?: Record<number, string>;
+  returnToBot?: boolean;
+  returnMessage?: string;
 }
 
 /**
@@ -93,6 +109,30 @@ export function useTonConnect() {
   };
 
   /**
+   * Возвращает пользователя в бот с отправкой сообщения
+   * @param message Сообщение для отправки боту
+   */
+  const returnToBot = (message: string) => {
+    try {
+      if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
+        // Отправляем сообщение боту и закрываем WebApp
+        window.Telegram.WebApp.sendData(JSON.stringify({ message: message }));
+        
+        // Небольшая задержка перед закрытием для гарантии отправки данных
+        setTimeout(() => {
+          window.Telegram?.WebApp?.close();
+        }, 100);
+        
+        console.log('Возврат в бота с сообщением:', message);
+      } else {
+        console.warn('Telegram WebApp API не доступен');
+      }
+    } catch (e) {
+      console.error('Ошибка при возврате в бота:', e);
+    }
+  };
+
+  /**
    * Отправка TON-транзакции с опциями
    * @param options Параметры транзакции
    * @returns Результат выполнения транзакции
@@ -128,7 +168,15 @@ export function useTonConnect() {
         };
 
         console.log('Отправка транзакции:', transactionRequest);
-        return await tonConnectUI.sendTransaction(transactionRequest);
+        const result = await tonConnectUI.sendTransaction(transactionRequest);
+        
+        // Если запрошен возврат в бота после транзакции
+        if (options.returnToBot && result) {
+          const message = options.returnMessage || 'Транзакция прошла успешно';
+          returnToBot(message);
+        }
+        
+        return result;
       } catch (e) {
         console.error('Ошибка при отправке транзакции:', e);
         throw e;
@@ -140,10 +188,14 @@ export function useTonConnect() {
   /**
    * Отправка нескольких транзакций в одном запросе (до 4 сообщений)
    * @param messages Массив сообщений для отправки (макс. 4)
+   * @param returnToBotOptions Опции для возврата в бота
    * @returns Результат выполнения транзакции
    */
   const sendMultipleTransactions = useCallback(
-    async (messages: SendTransactionOptions[]): Promise<SendTransactionResponse | undefined> => {
+    async (
+      messages: SendTransactionOptions[], 
+      returnToBotOptions?: { returnToBot: boolean; returnMessage?: string }
+    ): Promise<SendTransactionResponse | undefined> => {
       if (!wallet || !messages.length || messages.length > 4) return undefined;
 
       try {
@@ -166,7 +218,15 @@ export function useTonConnect() {
         };
 
         console.log('Отправка мульти-транзакции:', transactionRequest);
-        return await tonConnectUI.sendTransaction(transactionRequest);
+        const result = await tonConnectUI.sendTransaction(transactionRequest);
+        
+        // Если запрошен возврат в бота после мульти-транзакции
+        if (returnToBotOptions?.returnToBot && result) {
+          const message = returnToBotOptions.returnMessage || 'Транзакция прошла успешно';
+          returnToBot(message);
+        }
+        
+        return result;
       } catch (e) {
         console.error('Ошибка при отправке мульти-транзакции:', e);
         throw e;
@@ -184,5 +244,6 @@ export function useTonConnect() {
     wallet,
     userAddress,
     network,
+    returnToBot,
   };
 } 

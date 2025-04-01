@@ -303,4 +303,85 @@ function AdvancedSendForm() {
 
 - [Официальная документация TON Connect](https://docs.ton.org/develop/dapps/ton-connect/)
 - [GitHub репозиторий TON Connect](https://github.com/ton-connect/sdk)
-- [TON Connect UI React компоненты](https://github.com/ton-connect/sdk/tree/main/packages/ui-react) 
+- [TON Connect UI React компоненты](https://github.com/ton-connect/sdk/tree/main/packages/ui-react)
+
+## 6. Взаимодействие с Telegram Bot
+
+Важной функцией при разработке Telegram Mini Apps является отправка данных в бота и возвращение пользователя в основной интерфейс бота после выполнения действий в TMA.
+
+### 6.1. Возврат в бота после завершения транзакции
+
+Хук `useTonConnect` теперь поддерживает автоматический возврат в бота после успешного завершения транзакции:
+
+```tsx
+import { useTonConnect } from '@/hooks/useTonConnect';
+
+function TransactionComponent() {
+  const { sendTransaction } = useTonConnect();
+  
+  const handleSend = async () => {
+    try {
+      await sendTransaction({
+        recipient: "EQВашАдрес",
+        amount: 1.5,
+        comment: "Платеж за услуги",
+        
+        // Автоматический возврат в бота после транзакции
+        returnToBot: true,
+        returnMessage: "Транзакция успешно выполнена!"
+      });
+      
+      // Этот код не выполнится, если включен параметр returnToBot,
+      // т.к. приложение будет автоматически закрыто
+    } catch (error) {
+      console.error('Ошибка отправки:', error);
+    }
+  };
+  
+  return (
+    <button onClick={handleSend}>Отправить TON</button>
+  );
+}
+```
+
+### 6.2. Прямой вызов функции returnToBot
+
+Вы также можете вызвать функцию возврата в бота напрямую в любой момент:
+
+```tsx
+import { useTonConnect } from '@/hooks/useTonConnect';
+
+function MyComponent() {
+  const { returnToBot } = useTonConnect();
+  
+  const handleAction = () => {
+    // Какие-то действия...
+    
+    // Возврат в бота с сообщением
+    returnToBot("Действие успешно выполнено!");
+  };
+  
+  return (
+    <button onClick={handleAction}>Выполнить действие</button>
+  );
+}
+```
+
+### 6.3. Формат сообщений для бота
+
+Сообщения, отправляемые боту, могут содержать любые данные в формате JSON. Для этого нужно передать строку, содержащую сериализованный JSON-объект:
+
+```tsx
+// Простое текстовое сообщение
+returnToBot("Транзакция выполнена");
+
+// Детальное сообщение с данными
+returnToBot(JSON.stringify({
+  action: "transaction_completed",
+  txId: "abc123",
+  amount: 1.5,
+  recipient: "EQВашАдрес"
+}));
+```
+
+Бот получит эти данные в виде события `web_app_data` и сможет обработать их соответствующим образом. 

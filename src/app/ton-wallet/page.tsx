@@ -112,6 +112,10 @@ const TonWalletPage = () => {
         // Текстовый комментарий (SDK автоматически выполнит правильное кодирование)
         comment: comment || undefined,
         
+        // Параметры для возврата в бота
+        returnToBot: true,
+        returnMessage: `Транзакция успешно отправлена! Сумма: ${parsedAmount} TON, Получатель: ${recipient.substring(0, 6)}...${recipient.substring(recipient.length - 6)}`,
+        
         // Параметры для продвинутых сценариев (отключены в этом примере)
         // stateInit: undefined, // Base64-encoded stateInit для деплоя контрактов
         // extraCurrency: undefined // Для отправки Jetton'ов (токенов TON)

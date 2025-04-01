@@ -314,6 +314,10 @@ export default function TransferPage() {
           // Нет необходимости вручную конвертировать в BOC или base64
           comment: comment || undefined,
           
+          // Параметры для возврата в бота после транзакции
+          returnToBot: true,
+          returnMessage: `Транзакция успешно отправлена! Сумма: ${amount} TON, Получатель: ${formatTonAddress(address)}`,
+          
           // Расширенные параметры (отключены в этом примере)
           // stateInit: undefined, // Для деплоя контрактов
           // extraCurrency: undefined // Для отправки Jetton'ов
