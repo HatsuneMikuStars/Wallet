@@ -319,78 +319,52 @@ export default function TransferPage() {
       // Отправляем транзакцию с помощью обновленного хука
       try {
         const result = await sendTransaction({
-          // Обязательные параметры
           recipient: address,
           amount: amount,
-          
-          // Проверяем и устанавливаем тип сети
-          // Автоматически использует сеть подключенного кошелька
-          // Для тестовой сети TON код сети: "-239"
           network: wallet?.account.chain,
-          
-          // Комментарий передается как есть, SDK сам выполнит правильное кодирование
-          // Нет необходимости вручную конвертировать в BOC или base64
           comment: comment || undefined,
-          
-          // Параметры для возврата в бота после транзакции
           returnToBot: true,
           returnMessage: isTestMode 
             ? `ТЕСТ: Симуляция транзакции завершена. Сумма: ${amount} TON, Получатель: ${formatTonAddress(address)}`
             : `Транзакция успешно отправлена! Сумма: ${amount} TON, Получатель: ${formatTonAddress(address)}`,
-          
-          // Включаем тестовый режим, если установлен флаг
           testMode: isTestMode,
-          
-          // Расширенные параметры (отключены в этом примере)
-          // stateInit: undefined, // Для деплоя контрактов
-          // extraCurrency: undefined // Для отправки Jetton'ов
         });
         
         console.log('Транзакция обработана:', result);
         
-        // Используем идентификатор транзакции из ответа
         if (result && result.boc) {
           setTxHash(result.boc);
+          setTxStatus('success');
+          setTxError('');
+        }
+      } catch (error) {
+        console.error('Ошибка при отправке транзакции:', error);
+        setTxStatus('error');
+        
+        // Определяем тип ошибки и устанавливаем соответствующее сообщение
+        let errorMessage = 'Неизвестная ошибка';
+        
+        if (error instanceof Error) {
+          if (error.message.includes('Telegram WebApp API не доступен')) {
+            errorMessage = 'Ошибка при возврате в бота: API Telegram недоступен';
+          } else if (error.message.includes('User rejected the transaction')) {
+            errorMessage = 'Транзакция отменена пользователем';
+          } else if (error.message.includes('Insufficient funds')) {
+            errorMessage = 'Недостаточно средств для отправки';
+          } else {
+            errorMessage = error.message;
+          }
         }
         
-        setTxStatus('success');
-      } catch (error: any) {
-        console.error('Ошибка при отправке транзакции:', error);
+        setTxError(errorMessage);
         
-        // Проверка на конкретные типы ошибок
-        if (error.toString().includes('User rejected the transaction')) {
-          setTxError('Вы отклонили транзакцию');
-          setTxStatus('error');
-        } else if (error.toString().includes('Invalid magic') || error.toString().includes('deserializeBoc')) {
-          // Ошибка с форматированием данных
-          setTxError('Ошибка форматирования данных транзакции. Проверьте, что комментарий содержит только допустимые символы.');
-          setTxStatus('error');
-        } else if (error.toString().includes('Cell overflow')) {
-          setTxError('Комментарий слишком длинный. Максимальная длина комментария ограничена ~120 символами.');
-          setTxStatus('error');
-        } else if (error.toString().includes('was not sent') || error.toString().includes('Unable to verify') || error.toString().includes('Невозможно проверить')) {
-          // Показываем особое сообщение с инструкциями
-          setTxError(`Невозможно проверить транзакцию. Попробуйте: 
-          1) Переключиться на другое интернет-соединение
-          2) Проверить синхронизацию времени на устройстве
-          3) Перезагрузить устройство и повторить отправку`);
-          
-          // Попытка открыть кошелек
-          try {
-            if (typeof window !== 'undefined') {
-              window.open('https://t.me/wallet', '_blank');
-            }
-          } catch (openError) {
-            console.error('Не удалось открыть кошелек:', openError);
-          }
-          
-          setTxStatus('error');
-        } else if (error.toString().includes('недостаточно TON') || error.toString().includes('not enough balance')) {
-          setTxError('У вас недостаточно TON для оплаты комиссии. Необходимо минимум 0.05 TON.');
-          setTxStatus('error');
-        } else {
-          setTxError(error instanceof Error ? error.message : 'Неизвестная ошибка: ' + String(error));
-          setTxStatus('error');
+        // Если это тестовый режим, показываем дополнительную информацию
+        if (isTestMode) {
+          console.log('Детали ошибки в тестовом режиме:', {
+            error,
+            telegramWebApp: typeof window !== 'undefined' ? !!window.Telegram?.WebApp : false,
+            returnToBot: true
+          });
         }
       }
     } catch (outerError: any) {
