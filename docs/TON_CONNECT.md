@@ -390,13 +390,43 @@ returnToBot(JSON.stringify({
 
 Для тестирования интеграции TON Connect без отправки реальных транзакций предусмотрен специальный тестовый режим. Этот режим полезен для проверки пользовательского интерфейса, логики приложения и процесса возврата в бота Telegram.
 
-### 7.1. Включение тестового режима через URL-параметр
+### 7.1. Включение тестового режима
 
-Тестовый режим активируется через URL-параметр `isTest`. Для включения добавьте `?isTest=true` к URL вашего приложения:
+Тестовый режим можно активировать несколькими способами:
+
+#### 1. Через URL-параметр
+
+Добавьте `?isTest=true` к URL вашего приложения:
 
 ```
 https://ваш-домен.com/transfer?address=EQ...&amount=1.5&isTest=true
 ```
+
+#### 2. Через Base64 JSON в startapp параметре Telegram
+
+Для ботов Telegram, которые запускают Mini App, можно включить тестовый режим через параметр `startapp`:
+
+```python
+# Пример на Python
+import json
+import base64
+
+params = {
+    "address": "EQВашАдрес",
+    "amount": "1.5",
+    "comment": "Тестовый платеж",
+    "isTest": True  # Включаем тестовый режим
+}
+
+# Кодирование в Base64
+json_params = json.dumps(params, ensure_ascii=False)
+base64_params = base64.b64encode(json_params.encode('utf-8')).decode('utf-8')
+
+# URL для Telegram бота
+tg_url = f"https://t.me/ваш_бот/page?startapp={base64_params}"
+```
+
+Приложение автоматически распознает параметр `isTest` в JSON и активирует тестовый режим.
 
 ### 7.2. Поведение в тестовом режиме
 

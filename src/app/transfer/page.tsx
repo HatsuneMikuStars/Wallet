@@ -202,11 +202,18 @@ export default function TransferPage() {
             validateAndSetComment(jsonData.comment, 'Base64 JSON comment поле');
           }
           
+          // Проверяем наличие параметра isTest в JSON
+          if (jsonData.isTest === true || jsonData.isTest === 'true' || jsonData.isTest === '1') {
+            setIsTestMode(true);
+            console.log('Включен тестовый режим через Base64 JSON: транзакции не будут отправляться');
+          }
+          
           // Отображаем разобранные части для отладки
           setParsedParts([
             `address: ${jsonData.address || 'не указан'}`,
             `amount: ${jsonData.amount || 'не указан'}`,
-            `comment: ${jsonData.comment || 'не указан'} ${jsonData.comment && !isValidStartParam(jsonData.comment) ? '(недопустимые символы)' : ''}`
+            `comment: ${jsonData.comment || 'не указан'} ${jsonData.comment && !isValidStartParam(jsonData.comment) ? '(недопустимые символы)' : ''}`,
+            `isTest: ${jsonData.isTest ? 'да' : 'нет'}`
           ]);
           
           return; // Выходим, так как параметры уже обработаны

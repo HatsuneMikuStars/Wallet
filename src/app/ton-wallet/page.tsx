@@ -7,6 +7,7 @@ import { CHAIN } from '@tonconnect/sdk';
 import { useEffect, useState } from 'react';
 import { Address } from '@ton/core';
 import { useSearchParams } from 'next/navigation';
+import { useLaunchParams } from '@telegram-apps/sdk-react';
 
 // Улучшенная функция для проверки, выглядит ли строка как TON адрес
 const isValidTonAddress = (address: string): boolean => {
@@ -33,6 +34,7 @@ const formatAddress = (address: string): string => {
 
 const TonWalletPage = () => {
   const searchParams = useSearchParams();
+  const launchParams = useLaunchParams();
   const { isConnected, connect, disconnect, sendTransaction, userAddress, wallet, network } = useTonConnect();
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
@@ -48,14 +50,56 @@ const TonWalletPage = () => {
   // Флаг тестового режима
   const [isTestMode, setIsTestMode] = useState<boolean>(false);
 
-  // Проверяем параметр тестового режима в URL
+  // Функция для проверки, является ли строка Base64
+  const isBase64 = (str: string): boolean => {
+    try {
+      // Проверяем шаблон для Base64
+      if (!/^[A-Za-z0-9+/=]+$/.test(str)) {
+        return false;
+      }
+      // Проверяем, можно ли декодировать
+      window.atob(str);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  };
+
+  // Функция для декодирования Base64 в JSON
+  const tryParseBase64Json = (str: string): Record<string, any> | null => {
+    try {
+      const decodedStr = decodeURIComponent(
+        Array.prototype.map.call(window.atob(str), (c) => {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join('')
+      );
+      const jsonObj = JSON.parse(decodedStr);
+      return typeof jsonObj === 'object' ? jsonObj : null;
+    } catch (e) {
+      console.error('Ошибка при декодировании Base64 JSON:', e);
+      return null;
+    }
+  };
+
+  // Проверяем параметр тестового режима в URL и в startParam
   useEffect(() => {
+    // Проверяем URL параметр
     const testModeParam = searchParams.get('isTest');
     if (testModeParam === 'true' || testModeParam === '1') {
       setIsTestMode(true);
-      console.log('Включен тестовый режим: транзакции не будут отправляться');
+      console.log('Включен тестовый режим из URL: транзакции не будут отправляться');
+      return; // Если уже включили через URL, дальше не проверяем
     }
-  }, [searchParams]);
+    
+    // Проверяем startParam (Base64 JSON)
+    if (launchParams.startParam && isBase64(launchParams.startParam)) {
+      const jsonData = tryParseBase64Json(launchParams.startParam);
+      if (jsonData && (jsonData.isTest === true || jsonData.isTest === 'true' || jsonData.isTest === '1')) {
+        setIsTestMode(true);
+        console.log('Включен тестовый режим через Base64 JSON: транзакции не будут отправляться');
+      }
+    }
+  }, [searchParams, launchParams.startParam]);
 
   // Валидация адреса при вводе
   useEffect(() => {
