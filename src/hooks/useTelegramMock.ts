@@ -1,4 +1,5 @@
 import { useClientOnce } from '@/hooks/useClientOnce';
+import { useEffect } from 'react';
 import {
   isTMA,
   type LaunchParams,
@@ -8,17 +9,21 @@ import {
 } from '@telegram-apps/sdk-react';
 
 /**
- * Mocks Telegram environment in development mode.
+ * Состояние мока Telegram WebApp
  */
-export function useTelegramMock(): void {
-  useClientOnce(() => {
-    if (!sessionStorage.getItem('env-mocked') && isTMA('simple')) {
-      return;
-    }
+let isMocked = false;
 
-    // Determine which launch params should be applied. We could already
-    // apply them previously, or they may be specified on purpose using the
-    // default launch parameters transmission method.
+/**
+ * Инициализация мока Telegram WebApp
+ */
+function initMock() {
+  if (isMocked) {
+    console.log('Мок уже инициализирован');
+    return;
+  }
+
+  try {
+    // Determine which launch params should be applied
     let lp: LaunchParams | undefined;
     try {
       lp = retrieveLaunchParams();
@@ -64,10 +69,41 @@ export function useTelegramMock(): void {
       }
     }
 
-    sessionStorage.setItem('env-mocked', '1');
     mockTelegramEnv(lp);
-    console.warn(
-      '⚠️ As long as the current environment was not considered as the Telegram-based one, it was mocked. Take a note, that you should not do it in production and current behavior is only specific to the development process. Environment mocking is also applied only in development mode. So, after building the application, you will not see this behavior and related warning, leading to crashing the application outside Telegram.',
-    );
-  });
+    isMocked = true;
+    console.log('Мок Telegram WebApp успешно инициализирован');
+  } catch (error) {
+    console.error('Ошибка при инициализации мока:', error);
+  }
+}
+
+/**
+ * Хук для управления моком Telegram WebApp в режиме разработки
+ */
+export function useTelegramMock(): void {
+  useEffect(() => {
+    if (!sessionStorage.getItem('env-mocked') && isTMA('simple')) {
+      return;
+    }
+
+    if (typeof window !== 'undefined' && !window.Telegram?.WebApp) {
+      console.log('Инициализация мока Telegram WebApp...');
+      initMock();
+      sessionStorage.setItem('env-mocked', '1');
+    }
+  }, []);
+}
+
+/**
+ * Проверка состояния мока
+ */
+export function isTelegramMocked(): boolean {
+  return isMocked;
+}
+
+/**
+ * Принудительная инициализация мока
+ */
+export function forceMockTelegram(): void {
+  initMock();
 }

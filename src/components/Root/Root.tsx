@@ -13,7 +13,7 @@ import { AppRoot } from '@telegram-apps/telegram-ui';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ErrorPage } from '@/components/ErrorPage';
-import { useTelegramMock } from '@/hooks/useTelegramMock';
+import { useTelegramMock, isTelegramMocked } from '@/hooks/useTelegramMock';
 import { useDidMount } from '@/hooks/useDidMount';
 import { useClientOnce } from '@/hooks/useClientOnce';
 import { setLocale } from '@/core/i18n/locale';
@@ -23,19 +23,38 @@ import './styles.css';
 
 function RootInner({ children }: PropsWithChildren) {
   const isDev = process.env.NODE_ENV === 'development';
-
-  // Mock Telegram environment in development mode if needed.
-  if (isDev) {
-    // eslint-disable-next-line react-hooks/rules-of-hooks
-    useTelegramMock();
-  }
-
   const lp = useLaunchParams();
   const debug = isDev || lp.startParam === 'debug';
 
+  // Используем хук для мока в режиме разработки
+  useTelegramMock();
+
   // Initialize the library.
   useClientOnce(() => {
-    init(debug);
+    try {
+      console.log('Инициализация приложения...', {
+        isDev,
+        debug,
+        launchParams: lp,
+        telegramWebApp: typeof window !== 'undefined' ? !!window.Telegram?.WebApp : false,
+        isMocked: isTelegramMocked()
+      });
+      
+      init(debug);
+      
+      // Проверяем успешность инициализации
+      if (typeof window !== 'undefined') {
+        console.log('Проверка инициализации WebApp:', {
+          webApp: !!window.Telegram?.WebApp,
+          initData: window.Telegram?.WebApp?.initData,
+          version: window.Telegram?.WebApp?.version,
+          platform: window.Telegram?.WebApp?.platform,
+          isMocked: isTelegramMocked()
+        });
+      }
+    } catch (error) {
+      console.error('Ошибка при инициализации приложения:', error);
+    }
   });
 
   const isDark = useSignal(miniApp.isDark);
@@ -45,6 +64,30 @@ function RootInner({ children }: PropsWithChildren) {
   useEffect(() => {
     initDataUser && setLocale(initDataUser.languageCode);
   }, [initDataUser]);
+
+  // Логируем изменения состояния Telegram WebApp
+  useEffect(() => {
+    const checkWebApp = () => {
+      if (typeof window !== 'undefined') {
+        console.log('Состояние Telegram WebApp:', {
+          webApp: !!window.Telegram?.WebApp,
+          initData: window.Telegram?.WebApp?.initData,
+          version: window.Telegram?.WebApp?.version,
+          platform: window.Telegram?.WebApp?.platform,
+          isMocked: isTelegramMocked(),
+          time: new Date().toISOString()
+        });
+      }
+    };
+
+    // Проверяем сразу после монтирования
+    checkWebApp();
+
+    // И затем каждые 2 секунды
+    const interval = setInterval(checkWebApp, 2000);
+
+    return () => clearInterval(interval);
+  }, []);
 
   // Только логируем параметр startParam без перенаправлений
   useEffect(() => {

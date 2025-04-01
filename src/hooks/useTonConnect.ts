@@ -26,6 +26,9 @@ declare global {
       WebApp?: {
         sendData: (data: string) => void;
         close: () => void;
+        initData: string;
+        version: string;
+        platform: string;
       }
     }
   }
@@ -132,20 +135,49 @@ export function useTonConnect() {
   const returnToBot = (message: string) => {
     try {
       if (typeof window !== 'undefined' && window.Telegram?.WebApp) {
-        // Отправляем сообщение боту и закрываем WebApp
-        window.Telegram.WebApp.sendData(JSON.stringify({ message: message }));
+        console.log('Подготовка к отправке данных в бота:', message);
         
-        // Небольшая задержка перед закрытием для гарантии отправки данных
-        setTimeout(() => {
-          window.Telegram?.WebApp?.close();
-        }, 100);
+        // Формируем данные для отправки
+        const data = {
+          event: 'transaction_completed',
+          message: message,
+          timestamp: Date.now()
+        };
         
-        console.log('Возврат в бота с сообщением:', message);
+        try {
+          // Отправляем данные и сразу проверяем результат
+          window.Telegram.WebApp.sendData(JSON.stringify(data));
+          console.log('Данные успешно отправлены в бота');
+          
+          // Увеличиваем задержку до 1000мс и добавляем промежуточное сообщение
+          setTimeout(() => {
+            console.log('Подготовка к закрытию WebApp...');
+            
+            setTimeout(() => {
+              console.log('Закрытие WebApp...');
+              window.Telegram?.WebApp?.close();
+            }, 500);
+            
+          }, 500);
+          
+        } catch (sendError) {
+          console.error('Ошибка при отправке данных в бота:', sendError);
+          throw sendError;
+        }
+        
       } else {
-        console.warn('Telegram WebApp API не доступен');
+        const error = 'Telegram WebApp API не доступен';
+        console.warn(error, {
+          window: typeof window !== 'undefined',
+          TelegramWebApp: !!window?.Telegram?.WebApp,
+          sendData: !!window?.Telegram?.WebApp?.sendData,
+          close: !!window?.Telegram?.WebApp?.close
+        });
+        throw new Error(error);
       }
     } catch (e) {
-      console.error('Ошибка при возврате в бота:', e);
+      console.error('Критическая ошибка при возврате в бота:', e);
+      throw e;
     }
   };
 
