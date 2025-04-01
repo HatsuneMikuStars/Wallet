@@ -6,6 +6,7 @@ import { Button, Card, Input, Spinner, List, Section, Text, Title } from '@teleg
 import { CHAIN } from '@tonconnect/sdk';
 import { useEffect, useState } from 'react';
 import { Address } from '@ton/core';
+import { useSearchParams } from 'next/navigation';
 
 // Улучшенная функция для проверки, выглядит ли строка как TON адрес
 const isValidTonAddress = (address: string): boolean => {
@@ -31,6 +32,7 @@ const formatAddress = (address: string): string => {
 };
 
 const TonWalletPage = () => {
+  const searchParams = useSearchParams();
   const { isConnected, connect, disconnect, sendTransaction, userAddress, wallet, network } = useTonConnect();
   const [recipient, setRecipient] = useState('');
   const [amount, setAmount] = useState('');
@@ -42,6 +44,18 @@ const TonWalletPage = () => {
   
   // Определение типа адреса (EQ/UQ/raw)
   const [addressType, setAddressType] = useState<string>('');
+  
+  // Флаг тестового режима
+  const [isTestMode, setIsTestMode] = useState<boolean>(false);
+
+  // Проверяем параметр тестового режима в URL
+  useEffect(() => {
+    const testModeParam = searchParams.get('isTest');
+    if (testModeParam === 'true' || testModeParam === '1') {
+      setIsTestMode(true);
+      console.log('Включен тестовый режим: транзакции не будут отправляться');
+    }
+  }, [searchParams]);
 
   // Валидация адреса при вводе
   useEffect(() => {
@@ -85,7 +99,7 @@ const TonWalletPage = () => {
 
   // Функция для отправки TON
   const handleSend = async () => {
-    if (!isConnected || !recipient || !amount) return;
+    if (!isConnected && !isTestMode) return;
     if (addressError) return;
     
     const parsedAmount = parseFloat(amount);
@@ -114,7 +128,12 @@ const TonWalletPage = () => {
         
         // Параметры для возврата в бота
         returnToBot: true,
-        returnMessage: `Транзакция успешно отправлена! Сумма: ${parsedAmount} TON, Получатель: ${recipient.substring(0, 6)}...${recipient.substring(recipient.length - 6)}`,
+        returnMessage: isTestMode 
+          ? `ТЕСТ: Симуляция транзакции завершена. Сумма: ${parsedAmount} TON, Получатель: ${recipient.substring(0, 6)}...${recipient.substring(recipient.length - 6)}`
+          : `Транзакция успешно отправлена! Сумма: ${parsedAmount} TON, Получатель: ${recipient.substring(0, 6)}...${recipient.substring(recipient.length - 6)}`,
+        
+        // Включаем тестовый режим, если установлен флаг
+        testMode: isTestMode,
         
         // Параметры для продвинутых сценариев (отключены в этом примере)
         // stateInit: undefined, // Base64-encoded stateInit для деплоя контрактов
@@ -123,7 +142,7 @@ const TonWalletPage = () => {
       
       // Сохраняем результат для отображения
       setTxDetails(result);
-      setTxResult(`Транзакция успешно отправлена!`);
+      setTxResult(isTestMode ? 'Тестовая транзакция успешно симулирована!' : 'Транзакция успешно отправлена!');
     } catch (e) {
       console.error('Ошибка транзакции:', e);
       
@@ -158,10 +177,30 @@ const TonWalletPage = () => {
     <Page>
       <Section>
         <Title level="2" style={{ textAlign: 'center', margin: '20px 0' }}>
-          TON Wallet Интеграция
+          {isTestMode ? 'TON Wallet Тестирование' : 'TON Wallet Интеграция'}
         </Title>
         
-        {!isConnected ? (
+        {/* Индикатор тестового режима */}
+        {isTestMode && (
+          <Card style={{ 
+            padding: 10, 
+            marginBottom: 20, 
+            backgroundColor: 'rgba(255, 165, 0, 0.1)',
+            borderColor: 'rgba(255, 165, 0, 0.5)',
+            borderWidth: 1,
+            borderStyle: 'solid'
+          }}>
+            <Text style={{ 
+              textAlign: 'center', 
+              color: '#ff9800',
+              fontWeight: 'bold'
+            }}>
+              🧪 Тестовый режим - TON не будут отправлены
+            </Text>
+          </Card>
+        )}
+        
+        {!isConnected && !isTestMode ? (
           <Card style={{ padding: 20 }}>
             <Text style={{ textAlign: 'center', marginBottom: 20 }}>
               Подключите TON кошелек для отправки транзакций

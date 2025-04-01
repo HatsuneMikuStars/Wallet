@@ -4,6 +4,16 @@ import { Address, beginCell, toNano } from '@ton/core';
 import { CHAIN } from '@tonconnect/sdk';
 import type { SendTransactionRequest, SendTransactionResponse } from '@tonconnect/ui';
 
+// Расширяем тип из библиотеки, чтобы включить наши кастомные поля
+// Это решает проблему с TypeScript ошибкой
+declare module '@tonconnect/ui-react' {
+  interface SendTransactionOptions {
+    testMode?: boolean;
+    returnToBot?: boolean;
+    returnMessage?: string;
+  }
+}
+
 // Определение типов для Telegram WebApp API
 declare global {
   interface Window {
@@ -28,6 +38,7 @@ declare global {
  * @property {Record<number, string>} [extraCurrency] - Дополнительные валюты (ID валюты -> сумма в строке)
  * @property {boolean} [returnToBot] - Вернуться к боту после завершения транзакции
  * @property {string} [returnMessage] - Сообщение для бота после завершения транзакции
+ * @property {boolean} [testMode] - Тестовый режим без отправки транзакции
  */
 interface SendTransactionOptions {
   recipient: string;
@@ -38,6 +49,7 @@ interface SendTransactionOptions {
   extraCurrency?: Record<number, string>;
   returnToBot?: boolean;
   returnMessage?: string;
+  testMode?: boolean;
 }
 
 /**

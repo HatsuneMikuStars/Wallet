@@ -37,6 +37,9 @@ export default function TransferPage() {
   const [txHash, setTxHash] = useState<string>('');
   const [txError, setTxError] = useState<string>('');
 
+  // Флаг тестового режима
+  const [isTestMode, setIsTestMode] = useState<boolean>(false);
+
   // Получаем параметры из URL или из startParam
   const [address, setAddress] = useState<string>('');
   const [transactionData, setTransactionData] = useState<string>('');
@@ -158,6 +161,13 @@ export default function TransferPage() {
     const urlAddress = searchParams.get('address');
     const urlAmount = searchParams.get('amount');
     const urlComment = searchParams.get('comment');
+    
+    // Проверяем наличие параметра isTest
+    const testModeParam = searchParams.get('isTest');
+    if (testModeParam === 'true' || testModeParam === '1') {
+      setIsTestMode(true);
+      console.log('Включен тестовый режим: транзакции не будут отправляться');
+    }
 
     if (urlComment) {
       validateAndSetComment(urlComment, 'URL параметр comment');
@@ -258,7 +268,7 @@ export default function TransferPage() {
 
   // Функция для отправки транзакции
   const handleSendTransaction = async () => {
-    if (!isConnected) {
+    if (!isConnected && !isTestMode) {
       console.error('Кошелек не подключен');
       return;
     }
@@ -285,8 +295,8 @@ export default function TransferPage() {
         return;
       }
 
-      // Проверяем формат адреса
-      if (!address.startsWith('EQ') && !address.startsWith('UQ')) {
+      // Проверяем формат адреса (пропускаем в тестовом режиме)
+      if (!isTestMode && !address.startsWith('EQ') && !address.startsWith('UQ')) {
         setTxError('Неверный формат адреса');
         setTxStatus('error');
         return;
@@ -295,7 +305,8 @@ export default function TransferPage() {
       console.log('Подготовка транзакции:', {
         recipient: address,
         amount: amount,
-        comment: comment
+        comment: comment,
+        testMode: isTestMode
       });
 
       // Отправляем транзакцию с помощью обновленного хука
@@ -316,14 +327,19 @@ export default function TransferPage() {
           
           // Параметры для возврата в бота после транзакции
           returnToBot: true,
-          returnMessage: `Транзакция успешно отправлена! Сумма: ${amount} TON, Получатель: ${formatTonAddress(address)}`,
+          returnMessage: isTestMode 
+            ? `ТЕСТ: Симуляция транзакции завершена. Сумма: ${amount} TON, Получатель: ${formatTonAddress(address)}`
+            : `Транзакция успешно отправлена! Сумма: ${amount} TON, Получатель: ${formatTonAddress(address)}`,
+          
+          // Включаем тестовый режим, если установлен флаг
+          testMode: isTestMode,
           
           // Расширенные параметры (отключены в этом примере)
           // stateInit: undefined, // Для деплоя контрактов
           // extraCurrency: undefined // Для отправки Jetton'ов
         });
         
-        console.log('Транзакция отправлена:', result);
+        console.log('Транзакция обработана:', result);
         
         // Используем идентификатор транзакции из ответа
         if (result && result.boc) {
@@ -421,8 +437,29 @@ export default function TransferPage() {
           color: 'var(--tg-theme-text-color, #fff)',
           textShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
         }}>
-          Перевод TON
+          {isTestMode ? 'Тестовый перевод TON' : 'Перевод TON'}
         </Title>
+        
+        {/* Индикатор тестового режима */}
+        {isTestMode && (
+          <div style={{
+            display: 'inline-block',
+            background: 'rgba(255, 152, 0, 0.2)',
+            borderRadius: '8px',
+            padding: '6px 12px',
+            marginBottom: '10px',
+            border: '1px solid rgba(255, 152, 0, 0.5)'
+          }}>
+            <Text style={{
+              color: '#ff9800',
+              fontWeight: 'bold',
+              fontSize: '14px'
+            }}>
+              🧪 Тестовый режим - TON не будут отправлены
+            </Text>
+          </div>
+        )}
+        
         {parseFloat(transactionData) > 0 && (
           <Text style={{ 
             fontSize: '26px', 
@@ -430,12 +467,16 @@ export default function TransferPage() {
             display: 'inline-block',
             padding: '8px 20px',
             borderRadius: '16px',
-            background: 'linear-gradient(135deg, #0088cc 0%, #8e24aa 100%)',
+            background: isTestMode 
+              ? 'linear-gradient(135deg, #ff9800 0%, #ff5722 100%)'
+              : 'linear-gradient(135deg, #0088cc 0%, #8e24aa 100%)',
             color: '#ffffff',
-            boxShadow: '0 4px 8px rgba(0, 136, 204, 0.3)',
+            boxShadow: isTestMode
+              ? '0 4px 8px rgba(255, 152, 0, 0.3)'
+              : '0 4px 8px rgba(0, 136, 204, 0.3)',
             textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)'
           }}>
-            {transactionData} TON
+            {transactionData} TON {isTestMode && '(тест)'}
           </Text>
         )}
       </header>
